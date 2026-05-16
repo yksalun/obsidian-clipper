@@ -24,6 +24,7 @@ The `main` branch remains the upstream-sync branch. Feature work happens on `cod
 - No direct filesystem writes from the browser extension.
 - No first-version batch UI for Firefox or Safari.
 - No automatic background batch execution without a user pressing the run button.
+- No first-version automatic execution of interpreter prompt variables during batch runs.
 
 ## Browser Scope
 
@@ -81,15 +82,17 @@ The scheduler takes runnable queue items up to the configured concurrency. For e
 2. Wait for the target page to load enough for extraction.
 3. Ensure the existing content script is available.
 4. Call the existing page extraction flow used by the clipper.
-5. Close the temporary tab after extraction succeeds or fails.
-6. Render the selected template using the extracted data for that target page.
-7. Generate frontmatter and final Markdown content.
+5. Render the selected template using the extracted data for that target page while the temporary tab is still available for selector variables.
+6. Generate frontmatter and final Markdown content.
+7. Close the temporary tab after rendering succeeds or fails.
 8. Save to Obsidian using the existing `saveToObsidian` behavior.
 9. Update the item status.
 
 The selected template is fixed for the run. Batch execution should not re-run template trigger matching per target URL in the first version.
 
 Each successful link creates or updates one independent Obsidian note according to the selected template behavior, note name format, path, vault, and content format.
+
+If the selected template contains interpreter prompt variables while interpreter features are enabled, the first version should show a clear unsupported-template message instead of running the batch.
 
 ## Concurrency Model
 
