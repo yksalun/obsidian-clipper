@@ -1,6 +1,136 @@
 .is-side-panel:not(.is-embedded) {
 	--divider-color: rgba(var(--mono-rgb-100), .04);
+
 	#embedded-mode {
 		display: none;
+	}
+
+	.side-panel-tabs {
+		display: flex;
+		gap: 4px;
+		padding: 8px 12px 0;
+		border-bottom: 1px solid var(--divider-color);
+	}
+
+	.side-panel-tab {
+		min-height: 30px;
+		border: 0;
+		border-bottom: 2px solid transparent;
+		background: transparent;
+		color: var(--text-muted);
+		padding: 6px 8px;
+		font-size: var(--font-ui-small);
+		cursor: pointer;
+
+		&.is-active {
+			color: var(--text-normal);
+			border-bottom-color: var(--interactive-accent);
+		}
+	}
+
+	.side-panel-tab-panel {
+		display: none;
+
+		&.is-active {
+			display: block;
+		}
+	}
+
+	.batch-controls,
+	.batch-add-row,
+	.batch-run-row {
+		display: flex;
+		gap: 8px;
+		padding: 12px;
+		align-items: center;
+	}
+
+	.batch-controls {
+		display: grid;
+		grid-template-columns: 1fr auto;
+	}
+
+	.batch-run-row {
+		justify-content: flex-end;
+	}
+
+	.batch-concurrency-label {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		grid-column: 1 / -1;
+	}
+
+	#batch-concurrency {
+		width: 52px;
+	}
+
+	.batch-summary {
+		padding: 0 12px 8px;
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+	}
+
+	.batch-context {
+		color: var(--text-muted);
+		font-size: var(--font-ui-small);
+		line-height: 1.4;
+		min-width: 0;
+	}
+
+	.batch-queue {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 0 12px 12px;
+	}
+
+	.batch-queue-item {
+		border: 1px solid var(--background-modifier-border);
+		border-radius: 6px;
+		padding: 8px;
+		background: var(--background-primary);
+	}
+
+	.batch-queue-item-fields {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 6px;
+	}
+
+	.batch-queue-item-actions {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 8px;
+		margin-top: 6px;
+		font-size: var(--font-ui-small);
+		color: var(--text-muted);
+	}
+
+	.batch-status {
+		overflow-wrap: anywhere;
+	}
+
+	.batch-status-failed {
+		color: var(--text-error);
+	}
+
+	.batch-status-success {
+		color: var(--text-success);
+	}
+
+	.batch-add-row {
+		display: grid;
+		grid-template-columns: 1fr;
+	}
+
+	.batch-add-row input,
+	.batch-add-row button,
+	.batch-run-row button,
+	.batch-controls button {
+		min-width: 0;
 	}
 }

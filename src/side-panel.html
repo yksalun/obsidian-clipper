@@ -40,50 +40,77 @@
 				</a>
 			</div>
 		</div>
+		<nav class="side-panel-tabs" aria-label="Clipper views">
+			<button id="clip-tab" class="side-panel-tab is-active" type="button" data-panel="clip-panel">Clip</button>
+			<button id="batch-tab" class="side-panel-tab" type="button" data-panel="batch-panel">Batch</button>
+		</nav>
 		<p class="error-message" style="display: none;"></p>
-		<div class="clipper">
-			<textarea id="note-name-field" type="text" data-i18n="noteName" rows="1"></textarea>
-			<div class="metadata-properties-header">
-				<span data-i18n="properties"></span>
-				<i data-lucide="chevron-down"></i>
-			</div>
-			<div class="metadata-properties"></div>
-			<div id="note-content-container">
-				<textarea id="note-content-field" rows="4" data-i18n="notesAboutPage"></textarea>
-			</div>
-			<div class="clipper-footer">
-				<div class="vault-path-container">
-					<div id="vault-container" style="display: none;">
-						<select id="vault-select"></select>
-					</div>
-					<input id="path-name-field" type="text" data-i18n="folder"/>
+		<section id="clip-panel" class="side-panel-tab-panel is-active">
+			<div class="clipper">
+				<textarea id="note-name-field" type="text" data-i18n="noteName" rows="1"></textarea>
+				<div class="metadata-properties-header">
+					<span data-i18n="properties"></span>
+					<i data-lucide="chevron-down"></i>
 				</div>
-				<div id="interpreter" style="display: none;">
-					<textarea id="prompt-context" rows="3"></textarea>
-					<div class="interpreter-controls">
-						<select id="model-select" style="display: none;"></select>
-						<button id="interpret-btn" data-i18n="interpret"></button>
-						<span id="interpreter-timer" style="display: none;"></span>
-					</div>
-					<div id="token-counter" class="token-counter"></div>
-					<div id="interpreter-error" style="display: none;"></div>
+				<div class="metadata-properties"></div>
+				<div id="note-content-container">
+					<textarea id="note-content-field" rows="4" data-i18n="notesAboutPage"></textarea>
 				</div>
-				<div class="action-buttons" id="action-buttons">
-					<button id="clip-btn" class="mod-cta"><!-- Text set by determineMainAction --></button>
-					<div class="menu-btn">
-						<button id="more-btn"><i data-lucide="chevron-down"></i></button>
-						<div class="menu" id="more-dropdown">
-							<div class="secondary-actions">
-								<!-- Secondary actions will be populated by ts -->
+				<div class="clipper-footer">
+					<div class="vault-path-container">
+						<div id="vault-container" style="display: none;">
+							<select id="vault-select"></select>
+						</div>
+						<input id="path-name-field" type="text" data-i18n="folder"/>
+					</div>
+					<div id="interpreter" style="display: none;">
+						<textarea id="prompt-context" rows="3"></textarea>
+						<div class="interpreter-controls">
+							<select id="model-select" style="display: none;"></select>
+							<button id="interpret-btn" data-i18n="interpret"></button>
+							<span id="interpreter-timer" style="display: none;"></span>
+						</div>
+						<div id="token-counter" class="token-counter"></div>
+						<div id="interpreter-error" style="display: none;"></div>
+					</div>
+					<div class="action-buttons" id="action-buttons">
+						<button id="clip-btn" class="mod-cta"><!-- Text set by determineMainAction --></button>
+						<div class="menu-btn">
+							<button id="more-btn"><i data-lucide="chevron-down"></i></button>
+							<div class="menu" id="more-dropdown">
+								<div class="secondary-actions">
+									<!-- Secondary actions will be populated by ts -->
+								</div>
 							</div>
 						</div>
-					</div>
-					<div class="share-btn">
-						<a class="share-content clickable-icon" data-i18n-title="share"><i data-lucide="share"></i></a>
+						<div class="share-btn">
+							<a class="share-content clickable-icon" data-i18n-title="share"><i data-lucide="share"></i></a>
+						</div>
 					</div>
 				</div>
 			</div>
-		</div>
+		</section>
+		<section id="batch-panel" class="side-panel-tab-panel" hidden>
+			<div class="batch-controls">
+				<div id="batch-context" class="batch-context">Using the selected template. Set vault and path in Clip.</div>
+				<button id="batch-extract-links" type="button">Extract links</button>
+				<label class="batch-concurrency-label" for="batch-concurrency">
+					Concurrency
+					<input id="batch-concurrency" type="number" min="1" max="3" value="1">
+				</label>
+			</div>
+			<div id="batch-summary" class="batch-summary">No links extracted.</div>
+			<div id="batch-queue" class="batch-queue"></div>
+			<div class="batch-add-row">
+				<input id="batch-new-text" type="text" placeholder="Link text">
+				<input id="batch-new-url" type="url" placeholder="https://example.com/page">
+				<button id="batch-add-link" type="button">Add link</button>
+			</div>
+			<div class="batch-run-row">
+				<button id="batch-run" class="mod-cta" type="button">Run batch</button>
+				<button id="batch-retry-failed" type="button" disabled>Retry failed</button>
+			</div>
+		</section>
 		<script type="module" src="popup.js"></script>
 	</body>
 </html>
