@@ -181,23 +181,46 @@ async function ensureContentScriptLoadedInBackground(tabId: number): Promise<voi
 }
 
 async function waitForTabComplete(tabId: number, timeoutMs = 30000): Promise<void> {
-	const tab = await browser.tabs.get(tabId);
-	if (tab.status === 'complete') return;
-
 	return new Promise((resolve, reject) => {
-		const timeout = setTimeout(() => {
+		let settled = false;
+		let timeout: ReturnType<typeof setTimeout>;
+
+		function cleanup() {
+			clearTimeout(timeout);
 			browser.tabs.onUpdated.removeListener(listener);
+		}
+
+		function finish() {
+			if (settled) return;
+			settled = true;
+			cleanup();
+			resolve();
+		}
+
+		function listener(updatedTabId: number, changeInfo: browser.Tabs.OnUpdatedChangeInfoType) {
+			if (updatedTabId !== tabId || changeInfo.status !== 'complete') return;
+			finish();
+		}
+
+		timeout = setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			cleanup();
 			reject(new Error('Timed out waiting for page to load.'));
 		}, timeoutMs);
 
-		const listener = (updatedTabId: number, changeInfo: browser.Tabs.OnUpdatedChangeInfoType) => {
-			if (updatedTabId !== tabId || changeInfo.status !== 'complete') return;
-			clearTimeout(timeout);
-			browser.tabs.onUpdated.removeListener(listener);
-			resolve();
-		};
-
 		browser.tabs.onUpdated.addListener(listener);
+
+		browser.tabs.get(tabId)
+			.then((tab) => {
+				if (tab.status === 'complete') finish();
+			})
+			.catch((error) => {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				reject(error);
+			});
 	});
 }
 
