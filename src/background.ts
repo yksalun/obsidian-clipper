@@ -338,6 +338,9 @@ async function initialize() {
 		// Enable Origin header for YouTube innertube API requests
 		await enableYouTubeInnertubeRule();
 
+		// Chrome/Chromium opens the side panel directly from the toolbar action.
+		await configureSidePanelAction();
+
 		// Set up action popup based on openBehavior setting
 		await updateActionPopup();
 
@@ -1154,15 +1157,30 @@ async function injectReaderScript(tabId: number) {
 	}
 }
 
-// When set to 'reader' or 'embedded', clear the popup so action.onClicked fires
-// instead, handling the action directly without briefly opening the popup.
 const validOpenBehaviors: Settings['openBehavior'][] = ['popup', 'embedded', 'reader'];
 
 function parseOpenBehavior(raw: string | undefined): Settings['openBehavior'] {
 	return validOpenBehaviors.includes(raw as Settings['openBehavior']) ? raw as Settings['openBehavior'] : 'popup';
 }
 
+async function shouldUseSidePanelAction(): Promise<boolean> {
+	const browserType = await detectBrowser();
+	return ['chrome', 'brave', 'edge'].includes(browserType) &&
+		typeof chrome !== 'undefined' &&
+		Boolean(chrome.sidePanel);
+}
+
+async function configureSidePanelAction(): Promise<void> {
+	if (!await shouldUseSidePanelAction()) return;
+	await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+
 async function updateActionPopup(openBehavior?: Settings['openBehavior']): Promise<void> {
+	if (await shouldUseSidePanelAction()) {
+		await browser.action.setPopup({ popup: '' });
+		return;
+	}
+
 	if (!openBehavior) {
 		const data = await browser.storage.sync.get('general_settings');
 		openBehavior = parseOpenBehavior((data.general_settings as Record<string, string>)?.openBehavior);

@@ -20,9 +20,7 @@
 		"http://*/*",
 		"https://*/*"
 	],
-	"action": {
-		"default_popup": "popup.html"
-	},
+	"action": {},
 	"side_panel": {
 		"default_path": "side-panel.html"
 	},
