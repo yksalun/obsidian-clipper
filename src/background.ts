@@ -1,6 +1,6 @@
 import browser from 'webextension-polyfill';
 import { detectBrowser } from './utils/browser-detection';
-import { updateCurrentActiveTab, isValidUrl, isBlankPage, isNormalPageUrl } from './utils/active-tab-manager';
+import { updateCurrentActiveTab, isValidUrl, isBlankPage, isNormalPageUrl, isRestrictedUrl } from './utils/active-tab-manager';
 import { TextHighlightData } from './utils/highlighter';
 import { debounce } from './utils/debounce';
 import { Settings } from './types/types';
@@ -115,6 +115,14 @@ let hasHighlights = false;
 let isContextMenuCreating = false;
 let popupPorts: { [tabId: number]: browser.Runtime.Port } = {};
 
+interface BatchClipTabResult {
+	success: boolean;
+	tabId?: number;
+	url?: string;
+	content?: any;
+	error?: string;
+}
+
 async function injectContentScript(tabId: number): Promise<void> {
 	if (browser.scripting) {
 		debugLog('Clipper', 'Using scripting API');
@@ -170,6 +178,67 @@ async function ensureContentScriptLoadedInBackground(tabId: number): Promise<voi
 		debugLog('Clipper', 'Ping failed, injecting content script...', error);
 		await injectContentScript(tabId);
 	}
+}
+
+async function waitForTabComplete(tabId: number, timeoutMs = 30000): Promise<void> {
+	const tab = await browser.tabs.get(tabId);
+	if (tab.status === 'complete') return;
+
+	return new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			browser.tabs.onUpdated.removeListener(listener);
+			reject(new Error('Timed out waiting for page to load.'));
+		}, timeoutMs);
+
+		const listener = (updatedTabId: number, changeInfo: browser.Tabs.OnUpdatedChangeInfoType) => {
+			if (updatedTabId !== tabId || changeInfo.status !== 'complete') return;
+			clearTimeout(timeout);
+			browser.tabs.onUpdated.removeListener(listener);
+			resolve();
+		};
+
+		browser.tabs.onUpdated.addListener(listener);
+	});
+}
+
+async function openBatchClipTab(url: string): Promise<BatchClipTabResult> {
+	let tabId: number | undefined;
+	try {
+		if (!isValidUrl(url) || isBlankPage(url) || isRestrictedUrl(url)) {
+			throw new Error('Page is restricted or unsupported.');
+		}
+
+		const tab = await browser.tabs.create({ url, active: false });
+		tabId = tab.id;
+		if (typeof tabId !== 'number') throw new Error('Temporary tab was not created.');
+
+		await waitForTabComplete(tabId);
+		await ensureContentScriptLoadedInBackground(tabId);
+		const content = await routeMessageToTab(tabId, { action: 'getPageContent' });
+		if (!content || content.success === false) {
+			throw new Error(content?.error || 'No content was extracted.');
+		}
+
+		const loadedTab = await browser.tabs.get(tabId);
+		return {
+			success: true,
+			tabId,
+			url: loadedTab.url || url,
+			content,
+		};
+	} catch (error) {
+		if (typeof tabId === 'number') {
+			await browser.tabs.remove(tabId).catch(() => undefined);
+		}
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : String(error),
+		};
+	}
+}
+
+async function closeBatchClipTab(tabId: number): Promise<void> {
+	await browser.tabs.remove(tabId).catch(() => undefined);
 }
 
 // Route a message to a tab, handling both normal pages (via content script)
@@ -649,6 +718,31 @@ browser.runtime.onMessage.addListener((request: unknown, sender: browser.Runtime
 				sendResponse({ success: false, error: 'Missing tabId' });
 				return true;
 			}
+		}
+
+		if (typedRequest.action === "openBatchClipTab") {
+			const url = (typedRequest as any).url;
+			if (!url || typeof url !== 'string') {
+				sendResponse({ success: false, error: 'Missing URL.' });
+				return true;
+			}
+			openBatchClipTab(url).then(sendResponse);
+			return true;
+		}
+
+		if (typedRequest.action === "closeBatchClipTab") {
+			const tabId = (typedRequest as any).tabId;
+			if (typeof tabId !== 'number') {
+				sendResponse({ success: false, error: 'Missing tab ID.' });
+				return true;
+			}
+			closeBatchClipTab(tabId)
+				.then(() => sendResponse({ success: true }))
+				.catch((error) => sendResponse({
+					success: false,
+					error: error instanceof Error ? error.message : String(error),
+				}));
+			return true;
 		}
 
 		if (typedRequest.action === "sendMessageToTab") {
