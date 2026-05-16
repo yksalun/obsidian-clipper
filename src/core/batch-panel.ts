@@ -40,6 +40,8 @@ let isRunning = false;
 let saveChain: Promise<void> = Promise.resolve();
 let manualLinkId = 0;
 
+const SAVE_SETTLE_DELAY_MS = 1500;
+
 export function initializeBatchPanel(options: InitializeBatchPanelOptions): void {
 	const elements = getBatchPanelElements();
 	if (!elements) return;
@@ -253,9 +255,10 @@ async function runBatch(options: InitializeBatchPanelOptions, items: BatchQueueI
 	try {
 		const concurrencyInput = document.getElementById('batch-concurrency') as HTMLInputElement | null;
 		const concurrency = normalizeBatchConcurrency(Number(concurrencyInput?.value || 1));
+		const selectedVault = options.getSelectedVault();
 
 		await runWithConcurrency(items, concurrency, async (item) => {
-			await processQueueItem(options, template, item);
+			await processQueueItem(options, template, selectedVault, item);
 		});
 	} catch (error) {
 		options.showError(error instanceof Error ? error.message : 'Batch failed.');
@@ -268,6 +271,7 @@ async function runBatch(options: InitializeBatchPanelOptions, items: BatchQueueI
 async function processQueueItem(
 	options: InitializeBatchPanelOptions,
 	template: Template,
+	selectedVault: string,
 	item: BatchQueueItem
 ): Promise<void> {
 	let tempTabId: number | undefined;
@@ -289,7 +293,6 @@ async function processQueueItem(
 		queue = updateBatchQueueItem(queue, item.id, { status: 'rendering' });
 		renderQueue();
 
-		const selectedVault = options.getSelectedVault();
 		const rendered = await renderBatchNote({
 			tabId: tempTabId,
 			url: opened.url || item.url,
@@ -306,13 +309,19 @@ async function processQueueItem(
 
 		await enqueueSave(async () => {
 			await saveToObsidian(rendered.fileContent, rendered.noteName, rendered.path, rendered.vault, rendered.behavior);
-			await incrementStat('addToObsidian', rendered.vault, rendered.path, item.url, rendered.title || item.text);
-			options.setLastSelectedVault(rendered.vault);
-			await setLocalStorage('lastSelectedVault', rendered.vault);
+			await delay(SAVE_SETTLE_DELAY_MS);
 		});
 
 		queue = updateBatchQueueItem(queue, item.id, { status: 'success', error: undefined });
 		renderQueue();
+
+		try {
+			await incrementStat('addToObsidian', rendered.vault, rendered.path, item.url, rendered.title || item.text);
+			options.setLastSelectedVault(rendered.vault);
+			await setLocalStorage('lastSelectedVault', rendered.vault);
+		} catch (error) {
+			console.warn('Batch clip saved, but post-save bookkeeping failed:', error);
+		}
 	} catch (error) {
 		if (tempTabId !== undefined) {
 			await closeTemporaryTab(tempTabId).catch(() => undefined);
@@ -333,4 +342,8 @@ async function closeTemporaryTab(tabId: number): Promise<void> {
 function enqueueSave(task: () => Promise<void>): Promise<void> {
 	saveChain = saveChain.then(task, task);
 	return saveChain;
+}
+
+function delay(ms: number): Promise<void> {
+	return new Promise(resolve => setTimeout(resolve, ms));
 }
