@@ -1164,10 +1164,9 @@ function parseOpenBehavior(raw: string | undefined): Settings['openBehavior'] {
 }
 
 async function shouldUseSidePanelAction(): Promise<boolean> {
-	const browserType = await detectBrowser();
-	return ['chrome', 'brave', 'edge'].includes(browserType) &&
-		typeof chrome !== 'undefined' &&
-		Boolean(chrome.sidePanel);
+	return typeof chrome !== 'undefined' &&
+		Boolean(chrome.sidePanel?.setPanelBehavior) &&
+		Boolean(chrome.sidePanel?.open);
 }
 
 async function configureSidePanelAction(): Promise<void> {

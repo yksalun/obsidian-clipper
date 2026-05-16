@@ -14,6 +14,14 @@ export async function detectBrowser(): Promise<'chrome' | 'firefox' | 'firefox-m
 	try {
 		// Check if we're in a background script context
 		if (typeof window === 'undefined' || !window) {
+			if (typeof chrome !== 'undefined') {
+				if (chrome.sidePanel) {
+					return 'chrome';
+				}
+				if (typeof browser === 'undefined') {
+					return 'chrome';
+				}
+			}
 			if (typeof browser !== 'undefined') {
 				return 'firefox';
 			}
