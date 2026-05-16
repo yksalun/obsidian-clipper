@@ -22,5 +22,6 @@ assets/shared
 
 .context
 .cursorrules
+.superpowers/
 .env
 context/
