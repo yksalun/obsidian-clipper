@@ -30,10 +30,28 @@
 
 	.side-panel-tab-panel {
 		display: none;
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
 
 		&.is-active {
-			display: block;
+			display: flex;
+			flex-direction: column;
 		}
+
+		&[hidden],
+		&:not(.is-active) {
+			display: none;
+		}
+	}
+
+	#clip-panel .clipper {
+		flex: 1;
+		min-height: 0;
+	}
+
+	#batch-panel {
+		overflow-y: auto;
 	}
 
 	.batch-controls,

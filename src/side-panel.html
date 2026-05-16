@@ -40,12 +40,12 @@
 				</a>
 			</div>
 		</div>
-		<nav class="side-panel-tabs" aria-label="Clipper views">
-			<button id="clip-tab" class="side-panel-tab is-active" type="button" data-panel="clip-panel">Clip</button>
-			<button id="batch-tab" class="side-panel-tab" type="button" data-panel="batch-panel">Batch</button>
+		<nav class="side-panel-tabs" role="tablist" aria-label="Clipper views">
+			<button id="clip-tab" class="side-panel-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="clip-panel" tabindex="0" data-panel="clip-panel">Clip</button>
+			<button id="batch-tab" class="side-panel-tab" type="button" role="tab" aria-selected="false" aria-controls="batch-panel" tabindex="-1" data-panel="batch-panel">Batch</button>
 		</nav>
 		<p class="error-message" style="display: none;"></p>
-		<section id="clip-panel" class="side-panel-tab-panel is-active">
+		<section id="clip-panel" class="side-panel-tab-panel is-active" role="tabpanel" aria-labelledby="clip-tab">
 			<div class="clipper">
 				<textarea id="note-name-field" type="text" data-i18n="noteName" rows="1"></textarea>
 				<div class="metadata-properties-header">
@@ -90,7 +90,7 @@
 				</div>
 			</div>
 		</section>
-		<section id="batch-panel" class="side-panel-tab-panel" hidden>
+		<section id="batch-panel" class="side-panel-tab-panel" role="tabpanel" aria-labelledby="batch-tab" hidden>
 			<div class="batch-controls">
 				<div id="batch-context" class="batch-context">Using the selected template. Set vault and path in Clip.</div>
 				<button id="batch-extract-links" type="button">Extract links</button>
