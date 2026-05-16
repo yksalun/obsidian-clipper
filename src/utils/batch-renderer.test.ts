@@ -4,7 +4,6 @@ import { Template } from '../types/types';
 const mocks = vi.hoisted(() => ({
 	initializePageContent: vi.fn(),
 	compileTemplate: vi.fn(),
-	generateFrontmatter: vi.fn(),
 }));
 
 vi.mock('./content-extractor', () => ({
@@ -15,14 +14,10 @@ vi.mock('./template-compiler', () => ({
 	compileTemplate: mocks.compileTemplate,
 }));
 
-vi.mock('./obsidian-note-creator', () => ({
-	generateFrontmatter: mocks.generateFrontmatter,
-}));
-
 vi.mock('./storage-utils', () => ({
 	generalSettings: {
 		interpreterEnabled: false,
-		propertyTypes: [{ name: 'published', type: 'text' }],
+		propertyTypes: [],
 	},
 }));
 
@@ -35,7 +30,7 @@ const template: Template = {
 	noteNameFormat: '{{title}}',
 	path: 'Clips/{{site}}',
 	noteContentFormat: '# {{title}}\n{{content}}',
-	properties: [{ id: 'published', name: 'published', value: '{{published}}' }],
+	properties: [{ id: 'published', name: 'published', value: '{{published}}', type: 'date' }],
 };
 
 const extractedData = {
@@ -79,7 +74,6 @@ describe('renderBatchNote', () => {
 	beforeEach(() => {
 		mocks.initializePageContent.mockReset();
 		mocks.compileTemplate.mockReset();
-		mocks.generateFrontmatter.mockReset();
 
 		mocks.initializePageContent.mockResolvedValue({
 			currentVariables: {
@@ -87,6 +81,7 @@ describe('renderBatchNote', () => {
 				content: 'Hello',
 				site: 'Example',
 				published: '2026-05-16',
+				wordCount: 10,
 			},
 		});
 		mocks.compileTemplate.mockImplementation(async (_tabId, text: string) => {
@@ -94,9 +89,9 @@ describe('renderBatchNote', () => {
 				.replace('{{title}}', 'Example title')
 				.replace('{{content}}', 'Hello')
 				.replace('{{site}}', 'Example')
-				.replace('{{published}}', '2026-05-16');
+				.replace('{{published}}', '2026-05-16')
+				.replace('{{wordCount}}', '10');
 		});
-		mocks.generateFrontmatter.mockResolvedValue('---\npublished: 2026-05-16\n---\n');
 	});
 
 	test('renders note fields for one extracted page', async () => {
@@ -135,5 +130,43 @@ describe('renderBatchNote', () => {
 			extractedData.language,
 			extractedData.metaTags
 		);
+	});
+
+	test('does not compile note name or path for daily notes with missing fields', async () => {
+		const dailyTemplate = {
+			...template,
+			behavior: 'append-daily',
+			noteNameFormat: undefined,
+			path: undefined,
+		} as unknown as Template;
+
+		const rendered = await renderBatchNote({
+			tabId: 12,
+			url: 'https://example.com/post',
+			template: dailyTemplate,
+			extractedData,
+			selectedVault: 'Main vault',
+		});
+
+		expect(rendered.noteName).toBe('');
+		expect(rendered.path).toBe('');
+		expect(mocks.compileTemplate).not.toHaveBeenCalledWith(12, undefined, expect.anything(), 'https://example.com/post');
+	});
+
+	test('uses template property types when generating frontmatter', async () => {
+		const numericTemplate: Template = {
+			...template,
+			properties: [{ id: 'wordCount', name: 'wordCount', value: '{{wordCount}}', type: 'number' }],
+		};
+
+		const rendered = await renderBatchNote({
+			tabId: 12,
+			url: 'https://example.com/post',
+			template: numericTemplate,
+			extractedData,
+			selectedVault: 'Main vault',
+		});
+
+		expect(rendered.fileContent).toBe('---\nwordCount: 10\n---\n# Example title\nHello');
 	});
 });

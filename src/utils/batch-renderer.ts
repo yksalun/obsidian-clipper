@@ -1,8 +1,7 @@
 import { Template, Property } from '../types/types';
 import { initializePageContent } from './content-extractor';
 import { compileTemplate } from './template-compiler';
-import { generateFrontmatter } from './obsidian-note-creator';
-import { formatPropertyValue } from './shared';
+import { formatPropertyValue, generateFrontmatter } from './shared';
 import { unescapeValue } from './string-utils';
 import { generalSettings } from './storage-utils';
 
@@ -87,10 +86,11 @@ export async function renderBatchNote(options: RenderBatchNoteOptions): Promise<
 
 	const variables = initializedContent.currentVariables;
 	const compile = (text: string) => compileTemplate(tabId, text, variables, url);
+	const isDailyNote = template.behavior === 'append-daily' || template.behavior === 'prepend-daily';
 
 	const [noteName, path, noteContent, compiledProperties] = await Promise.all([
-		compile(template.noteNameFormat),
-		compile(template.path),
+		isDailyNote ? Promise.resolve('') : compile(template.noteNameFormat ?? ''),
+		isDailyNote ? Promise.resolve('') : compile(template.path ?? ''),
 		template.noteContentFormat ? compile(template.noteContentFormat) : Promise.resolve(''),
 		Promise.all(template.properties.map(async (property): Promise<Property> => {
 			const compiledValue = await compile(unescapeValue(property.value));
@@ -104,8 +104,11 @@ export async function renderBatchNote(options: RenderBatchNoteOptions): Promise<
 		})),
 	]);
 
-	const frontmatter = await generateFrontmatter(compiledProperties);
-	const isDailyNote = template.behavior === 'append-daily' || template.behavior === 'prepend-daily';
+	const propertyTypeMap = compiledProperties.reduce<Record<string, string>>((types, property) => {
+		types[property.name] = property.type || 'text';
+		return types;
+	}, {});
+	const frontmatter = generateFrontmatter(compiledProperties, propertyTypeMap);
 
 	return {
 		fileContent: frontmatter + noteContent,
