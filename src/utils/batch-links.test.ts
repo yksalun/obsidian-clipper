@@ -39,6 +39,17 @@ describe('extractVisibleLinks', () => {
 		]);
 	});
 
+	test('resolves relative links against document base URI', () => {
+		const links = extractVisibleLinks(doc(`
+			<base href="https://cdn.example.com/docs/">
+			<a href="page">Base page</a>
+		`), 'https://example.com/root');
+
+		expect(links).toEqual([
+			{ id: 'batch-link-1', text: 'Base page', url: 'https://cdn.example.com/docs/page' },
+		]);
+	});
+
 	test('filters hidden and unsupported links', () => {
 		const links = extractVisibleLinks(doc(`
 			<a href="/visible">Visible</a>
@@ -63,6 +74,18 @@ describe('extractVisibleLinks', () => {
 
 		expect(links).toEqual([
 			{ id: 'batch-link-1', text: 'First', url: 'https://example.com/same' },
+		]);
+	});
+
+	test('de-duplicates same-page fragments while keeping the first URL', () => {
+		const links = extractVisibleLinks(doc(`
+			<a href="/article#top">Top</a>
+			<a href="/article#comments">Comments</a>
+			<a href="/article">Article</a>
+		`), 'https://example.com/root');
+
+		expect(links).toEqual([
+			{ id: 'batch-link-1', text: 'Top', url: 'https://example.com/article#top' },
 		]);
 	});
 });

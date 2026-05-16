@@ -41,8 +41,7 @@ export interface RenderedBatchNote {
 	title?: string;
 }
 
-export function canRunBatchTemplate(template: Template, interpreterEnabled: boolean): { ok: true } | { ok: false; error: string } {
-	if (!interpreterEnabled) return { ok: true };
+export function canRunBatchTemplate(template: Template, _interpreterEnabled: boolean): { ok: true } | { ok: false; error: string } {
 	const fields = [
 		template.noteNameFormat,
 		template.path,
@@ -50,7 +49,7 @@ export function canRunBatchTemplate(template: Template, interpreterEnabled: bool
 		template.context ?? '',
 		...template.properties.map(property => property.value),
 	];
-	const hasPromptVariable = fields.some(field => /{{\s*(?:prompt:)?"/.test(field));
+	const hasPromptVariable = fields.some(field => /{{\s*(?:prompt:)?"/.test(field ?? ''));
 	if (!hasPromptVariable) return { ok: true };
 	return {
 		ok: false,

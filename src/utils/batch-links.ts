@@ -64,17 +64,27 @@ function getLinkText(anchor: HTMLAnchorElement, url: string): string {
 		url;
 }
 
+function getDeduplicationKey(url: string): string {
+	const dedupeUrl = new URL(url);
+	dedupeUrl.hash = '';
+	return dedupeUrl.href;
+}
+
 export function extractVisibleLinks(doc: Document, baseUrl: string = doc.URL): ExtractedBatchLink[] {
 	const seenUrls = new Set<string>();
 	const links: ExtractedBatchLink[] = [];
+	const documentBaseUrl = doc.baseURI || baseUrl;
 
 	for (const anchor of Array.from(doc.querySelectorAll<HTMLAnchorElement>('a[href]'))) {
 		if (!isElementVisible(anchor)) continue;
 
-		const url = normalizeLinkUrl(anchor.getAttribute('href'), baseUrl);
-		if (!url || seenUrls.has(url)) continue;
+		const url = normalizeLinkUrl(anchor.getAttribute('href'), documentBaseUrl);
+		if (!url) continue;
 
-		seenUrls.add(url);
+		const deduplicationKey = getDeduplicationKey(url);
+		if (seenUrls.has(deduplicationKey)) continue;
+
+		seenUrls.add(deduplicationKey);
 		links.push({
 			id: `batch-link-${links.length + 1}`,
 			text: getLinkText(anchor, url),

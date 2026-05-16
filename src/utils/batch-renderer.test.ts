@@ -65,6 +65,18 @@ describe('canRunBatchTemplate', () => {
 		});
 	});
 
+	test('blocks prompt templates even when interpreter is disabled', () => {
+		const promptTemplate = {
+			...template,
+			noteContentFormat: '{{"summarize this page"}}',
+		};
+
+		expect(canRunBatchTemplate(promptTemplate, false)).toEqual({
+			ok: false,
+			error: 'Batch clipping does not support interpreter prompt variables yet.',
+		});
+	});
+
 	test('allows normal templates when interpreter is enabled', () => {
 		expect(canRunBatchTemplate(template, true)).toEqual({ ok: true });
 	});
