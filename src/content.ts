@@ -12,6 +12,7 @@ import { saveFile } from './utils/file-utils';
 import { debugLog } from './utils/debug';
 import { updateSidebarWidth, addResizeHandle, cleanupResizeHandlers } from './utils/iframe-resize';
 import { parseForClip } from './utils/clip-utils';
+import { extractVisibleLinks } from './utils/batch-links';
 
 declare global {
 	interface Window {
@@ -117,6 +118,21 @@ declare global {
 
 		if (request.action === "ping") {
 			sendResponse({});
+			return true;
+		}
+
+		if (request.action === "getVisibleLinks") {
+			try {
+				sendResponse({
+					success: true,
+					links: extractVisibleLinks(document, document.URL),
+				});
+			} catch (error) {
+				sendResponse({
+					success: false,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
 			return true;
 		}
 
