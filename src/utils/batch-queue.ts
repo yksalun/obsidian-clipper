@@ -61,12 +61,24 @@ export async function runWithConcurrency<T, R>(
 	const limit = normalizeBatchConcurrency(concurrency);
 	const results: R[] = new Array(items.length);
 	let nextIndex = 0;
+	let hasError = false;
+	let firstError: unknown;
 
 	async function runNext(): Promise<void> {
 		const index = nextIndex;
 		nextIndex += 1;
-		if (index >= items.length) return;
-		results[index] = await worker(items[index], index);
+		if (hasError || index >= items.length) return;
+
+		try {
+			results[index] = await worker(items[index], index);
+		} catch (error) {
+			if (!hasError) {
+				hasError = true;
+				firstError = error;
+			}
+			return;
+		}
+
 		await runNext();
 	}
 
@@ -75,5 +87,6 @@ export async function runWithConcurrency<T, R>(
 		() => runNext()
 	);
 	await Promise.all(workers);
+	if (hasError) throw firstError;
 	return results;
 }

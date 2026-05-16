@@ -85,4 +85,29 @@ describe('runWithConcurrency', () => {
 		expect(results).toEqual([2, 4, 6, 8]);
 		expect(maxActive).toBe(2);
 	});
+
+	test('waits for active worker chains to settle before rejecting', async () => {
+		const error = new Error('Extraction failed.');
+		const started: number[] = [];
+		let slowSettled = false;
+
+		await expect(runWithConcurrency([1, 2, 3], 2, async (item) => {
+			started.push(item);
+
+			if (item === 1) {
+				await new Promise(resolve => setTimeout(resolve, 5));
+				slowSettled = true;
+				return item;
+			}
+
+			if (item === 2) {
+				throw error;
+			}
+
+			return item;
+		})).rejects.toBe(error);
+
+		expect(slowSettled).toBe(true);
+		expect(started).toEqual([1, 2]);
+	});
 });
