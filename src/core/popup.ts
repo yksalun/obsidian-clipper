@@ -23,6 +23,7 @@ import { sanitizeFileName } from '../utils/string-utils';
 import { saveFile } from '../utils/file-utils';
 import { translatePage, getMessage, setupLanguageAndDirection } from '../utils/i18n';
 import { formatPropertyValue } from '../utils/shared';
+import { initializeBatchPanel } from './batch-panel';
 
 interface ReaderModeResponse {
 	success: boolean;
@@ -383,6 +384,21 @@ document.addEventListener('DOMContentLoaded', async function() {
 				await initializeUI();
 
 				determineMainAction();
+
+				if (isSidePanel && !isIframe) {
+					initializeBatchPanel({
+						getCurrentTabId: () => currentTabId,
+						getCurrentTemplate: () => currentTemplate,
+						getSelectedVault: () => {
+							const vaultDropdown = document.getElementById('vault-select') as HTMLSelectElement | null;
+							return vaultDropdown?.value || currentTemplate?.vault || '';
+						},
+						setLastSelectedVault: (vault: string) => {
+							lastSelectedVault = vault;
+						},
+						showError,
+					});
+				}
 
 				const showMoreActionsButton = document.getElementById('show-variables');
 				if (showMoreActionsButton) {
