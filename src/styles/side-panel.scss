@@ -145,9 +145,19 @@
 
 	.batch-queue-item {
 		border: 1px solid var(--background-modifier-border);
+		border-left: 3px solid var(--background-modifier-border-hover);
 		border-radius: 6px;
-		padding: 8px;
-		background: var(--background-primary);
+		padding: 8px 10px 10px;
+		background: var(--background-secondary);
+		box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+	}
+
+	.batch-queue-item-header {
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		min-height: var(--clickable-icon-size);
+		margin: -2px -2px 4px 0;
 	}
 
 	.batch-queue-item-fields {
@@ -156,17 +166,14 @@
 		gap: 6px;
 	}
 
-	.batch-queue-item-actions {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		gap: 8px;
-		margin-top: 6px;
-		font-size: var(--font-ui-small);
-		color: var(--text-muted);
+	.batch-link-remove-button {
+		flex: 0 0 auto;
 	}
 
 	.batch-status {
+		display: block;
+		margin-top: 6px;
+		font-size: var(--font-ui-small);
 		overflow-wrap: anywhere;
 	}
 

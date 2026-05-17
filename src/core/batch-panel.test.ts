@@ -107,6 +107,35 @@ describe('initializeBatchPanel path UI', () => {
 		expect(removeButton?.querySelector('[data-lucide="trash-2"]')).toBeTruthy();
 	});
 
+	test('renders each queued link as a card with a top-right icon-only remove button', () => {
+		initializeBatchPanel({
+			getCurrentTabId: () => undefined,
+			getCurrentTemplate: () => null,
+			getSelectedVault: () => '',
+			getDefaultPath: () => '',
+			setLastSelectedVault: vi.fn(),
+		});
+
+		(document.getElementById('batch-new-text') as HTMLInputElement).value = 'Example';
+		(document.getElementById('batch-new-url') as HTMLInputElement).value = 'https://example.com/a';
+		(document.getElementById('batch-add-link') as HTMLButtonElement).click();
+
+		const card = document.querySelector('.batch-queue-item') as HTMLElement;
+		const header = card.querySelector('.batch-queue-item-header') as HTMLElement;
+		const removeButton = header?.querySelector('.batch-remove-link') as HTMLButtonElement;
+
+		expect(card.classList.contains('batch-queue-item')).toBe(true);
+		expect(header).toBeTruthy();
+		expect(header.parentElement).toBe(card);
+		expect(card.querySelector('.batch-status')).toBeFalsy();
+		expect(card.textContent?.includes('idle')).toBe(false);
+		expect(removeButton?.textContent).toBe('');
+		expect(removeButton?.classList.contains('clickable-icon')).toBe(true);
+		expect(removeButton?.classList.contains('batch-link-remove-button')).toBe(true);
+		expect(removeButton?.getAttribute('aria-label')).toBe('Remove link');
+		expect(removeButton?.querySelector('[data-lucide="trash-2"]')).toBeTruthy();
+	});
+
 	test('shows page-dependent extract errors in the batch summary', () => {
 		initializeBatchPanel({
 			getCurrentTabId: () => 1,

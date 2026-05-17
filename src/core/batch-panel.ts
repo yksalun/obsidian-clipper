@@ -287,6 +287,16 @@ function createQueueRow(item: BatchQueueItem): HTMLElement {
 	row.className = 'batch-queue-item';
 	row.dataset.id = item.id;
 
+	const header = document.createElement('div');
+	header.className = 'batch-queue-item-header';
+
+	const removeButton = createIconButton('batch-remove-link batch-link-remove-button', 'Remove link', 'trash-2');
+	removeButton.addEventListener('click', () => {
+		queue = queue.filter(link => link.id !== item.id);
+		renderQueue();
+	});
+	header.appendChild(removeButton);
+
 	const fields = document.createElement('div');
 	fields.className = 'batch-queue-item-fields';
 
@@ -311,25 +321,16 @@ function createQueueRow(item: BatchQueueItem): HTMLElement {
 	fields.append(textInput, urlInput);
 	fields.appendChild(createPathList(item));
 
-	const actions = document.createElement('div');
-	actions.className = 'batch-queue-item-actions';
+	row.append(header, fields);
 
-	const status = document.createElement('span');
-	status.className = `batch-status batch-status-${item.status}`;
-	status.textContent = item.error || item.status;
+	if (item.error) {
+		const status = document.createElement('span');
+		status.className = 'batch-status batch-status-failed';
+		status.textContent = item.error;
+		row.appendChild(status);
+	}
 
-	const removeButton = document.createElement('button');
-	removeButton.className = 'batch-remove-link';
-	removeButton.type = 'button';
-	removeButton.textContent = 'Remove';
-	removeButton.disabled = isRunning;
-	removeButton.addEventListener('click', () => {
-		queue = queue.filter(link => link.id !== item.id);
-		renderQueue();
-	});
-
-	actions.append(status, removeButton);
-	row.append(fields, actions);
+	initializeIcons(row);
 	return row;
 }
 
@@ -362,7 +363,7 @@ function appendPathRow(pathList: HTMLElement, itemId: string, path: string, afte
 	const actions = document.createElement('div');
 	actions.className = 'batch-path-actions';
 
-	const addButton = createPathIconButton('batch-add-path', 'Add path', 'plus');
+	const addButton = createIconButton('batch-add-path batch-path-icon-button', 'Add path', 'plus');
 	addButton.addEventListener('click', () => {
 		const newRow = appendPathRow(pathList, itemId, '', row);
 		const newInput = newRow.querySelector<HTMLInputElement>('.batch-path-input');
@@ -370,16 +371,7 @@ function appendPathRow(pathList: HTMLElement, itemId: string, path: string, afte
 		updateItemPathsFromPathList(itemId, pathList);
 	});
 
-	const removeButton = document.createElement('button');
-	removeButton.className = 'batch-remove-path clickable-icon batch-path-icon-button';
-	removeButton.type = 'button';
-	removeButton.setAttribute('aria-label', 'Remove path');
-	removeButton.title = 'Remove path';
-	removeButton.disabled = isRunning;
-	const removeIcon = document.createElement('i');
-	removeIcon.setAttribute('data-lucide', 'trash-2');
-	removeIcon.setAttribute('aria-hidden', 'true');
-	removeButton.appendChild(removeIcon);
+	const removeButton = createIconButton('batch-remove-path batch-path-icon-button', 'Remove path', 'trash-2');
 	removeButton.addEventListener('click', () => {
 		row.remove();
 		if (!pathList.querySelector('.batch-path-input')) {
@@ -400,9 +392,9 @@ function appendPathRow(pathList: HTMLElement, itemId: string, path: string, afte
 	return row;
 }
 
-function createPathIconButton(className: string, label: string, iconName: string): HTMLButtonElement {
+function createIconButton(className: string, label: string, iconName: string): HTMLButtonElement {
 	const button = document.createElement('button');
-	button.className = `${className} clickable-icon batch-path-icon-button`;
+	button.className = `${className} clickable-icon`;
 	button.type = 'button';
 	button.setAttribute('aria-label', label);
 	button.title = label;
