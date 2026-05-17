@@ -4,6 +4,7 @@ import {
 	createBatchQueue,
 	getBatchSummary,
 	normalizeBatchConcurrency,
+	resolveBatchSavePaths,
 	runWithConcurrency,
 	updateBatchQueueItem,
 } from './batch-queue';
@@ -16,17 +17,25 @@ describe('createBatchQueue', () => {
 		]);
 
 		expect(queue).toEqual([
-			{ id: 'batch-link-1', text: 'A', url: 'https://example.com/a', status: 'idle' },
-			{ id: 'batch-link-2', text: 'B', url: 'https://example.com/b', status: 'idle' },
+			{ id: 'batch-link-1', text: 'A', url: 'https://example.com/a', paths: [], status: 'idle' },
+			{ id: 'batch-link-2', text: 'B', url: 'https://example.com/b', paths: [], status: 'idle' },
 		]);
+	});
+
+	test('preserves imported paths when present', () => {
+		const queue = createBatchQueue([
+			{ id: 'csv-link-1', text: 'A', url: 'https://example.com/a', paths: ['One', 'Two'] },
+		]);
+
+		expect(queue[0].paths).toEqual(['One', 'Two']);
 	});
 });
 
 describe('updateBatchQueueItem', () => {
 	test('updates one item without mutating the original queue', () => {
 		const original: BatchQueueItem[] = [
-			{ id: 'one', text: 'One', url: 'https://example.com/one', status: 'idle' },
-			{ id: 'two', text: 'Two', url: 'https://example.com/two', status: 'idle' },
+			{ id: 'one', text: 'One', url: 'https://example.com/one', paths: [], status: 'idle' },
+			{ id: 'two', text: 'Two', url: 'https://example.com/two', paths: [], status: 'idle' },
 		];
 
 		const updated = updateBatchQueueItem(original, 'two', {
@@ -39,6 +48,7 @@ describe('updateBatchQueueItem', () => {
 			id: 'two',
 			text: 'Two',
 			url: 'https://example.com/two',
+			paths: [],
 			status: 'failed',
 			error: 'No content was extracted.',
 		});
@@ -57,15 +67,49 @@ describe('normalizeBatchConcurrency', () => {
 describe('getBatchSummary', () => {
 	test('counts queue statuses', () => {
 		expect(getBatchSummary([
-			{ id: '1', text: 'A', url: 'https://a.test', status: 'success' },
-			{ id: '2', text: 'B', url: 'https://b.test', status: 'failed' },
-			{ id: '3', text: 'C', url: 'https://c.test', status: 'queued' },
+			{ id: '1', text: 'A', url: 'https://a.test', paths: [], status: 'success' },
+			{ id: '2', text: 'B', url: 'https://b.test', paths: [], status: 'failed' },
+			{ id: '3', text: 'C', url: 'https://c.test', paths: [], status: 'queued' },
 		])).toEqual({
 			total: 3,
 			success: 1,
 			failed: 1,
 			pending: 1,
 		});
+	});
+});
+
+describe('resolveBatchSavePaths', () => {
+	test('uses item paths before the default and rendered paths', () => {
+		expect(resolveBatchSavePaths(
+			{ id: '1', text: 'A', url: 'https://a.test', paths: ['One', 'Two'], status: 'idle' },
+			'Default',
+			'Rendered'
+		)).toEqual(['One', 'Two']);
+	});
+
+	test('uses default path when item paths are empty', () => {
+		expect(resolveBatchSavePaths(
+			{ id: '1', text: 'A', url: 'https://a.test', paths: [], status: 'idle' },
+			'Default',
+			'Rendered'
+		)).toEqual(['Default']);
+	});
+
+	test('falls back to rendered template path when item and default paths are empty', () => {
+		expect(resolveBatchSavePaths(
+			{ id: '1', text: 'A', url: 'https://a.test', paths: [], status: 'idle' },
+			'',
+			'Rendered'
+		)).toEqual(['Rendered']);
+	});
+
+	test('trims, removes empty paths, and de-duplicates paths', () => {
+		expect(resolveBatchSavePaths(
+			{ id: '1', text: 'A', url: 'https://a.test', paths: [' One ', '', 'One', 'Two'], status: 'idle' },
+			'Default',
+			'Rendered'
+		)).toEqual(['One', 'Two']);
 	});
 });
 

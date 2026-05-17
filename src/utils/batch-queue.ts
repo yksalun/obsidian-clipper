@@ -3,6 +3,7 @@ import { ExtractedBatchLink } from './batch-links';
 export type BatchQueueStatus = 'idle' | 'queued' | 'opening' | 'extracting' | 'rendering' | 'saving' | 'success' | 'failed';
 
 export interface BatchQueueItem extends ExtractedBatchLink {
+	paths: string[];
 	status: BatchQueueStatus;
 	error?: string;
 }
@@ -14,9 +15,10 @@ export interface BatchSummary {
 	pending: number;
 }
 
-export function createBatchQueue(links: ExtractedBatchLink[]): BatchQueueItem[] {
+export function createBatchQueue(links: Array<ExtractedBatchLink & { paths?: string[] }>): BatchQueueItem[] {
 	return links.map(link => ({
 		...link,
+		paths: Array.isArray(link.paths) ? normalizePathList(link.paths) : [],
 		status: 'idle',
 	}));
 }
@@ -51,6 +53,35 @@ export function getBatchSummary(queue: BatchQueueItem[]): BatchSummary {
 		failed,
 		pending,
 	};
+}
+
+export function resolveBatchSavePaths(
+	item: Pick<BatchQueueItem, 'paths'>,
+	defaultPath: string,
+	renderedPath: string
+): string[] {
+	const itemPaths = normalizePathList(item.paths);
+	if (itemPaths.length > 0) return itemPaths;
+
+	const defaultPaths = normalizePathList([defaultPath]);
+	if (defaultPaths.length > 0) return defaultPaths;
+
+	return normalizePathList([renderedPath]);
+}
+
+function normalizePathList(paths: string[]): string[] {
+	const seen = new Set<string>();
+	const normalized: string[] = [];
+
+	for (const path of paths) {
+		const trimmed = path.trim();
+		if (!trimmed || seen.has(trimmed)) continue;
+
+		seen.add(trimmed);
+		normalized.push(trimmed);
+	}
+
+	return normalized;
 }
 
 export async function runWithConcurrency<T, R>(
