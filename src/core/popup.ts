@@ -37,6 +37,7 @@ let currentVariables: { [key: string]: string } = {};
 let currentTabId: number | undefined;
 let currentClipAvailability: ClipAvailability | null = null;
 let lastSelectedVault: string | null = null;
+let clipControlsInitialized = false;
 
 const isSidePanel = window.location.pathname.includes('side-panel.html');
 const urlParams = new URLSearchParams(window.location.search);
@@ -207,10 +208,6 @@ async function initializeExtension(tabId: number): Promise<ClipAvailability | nu
 		setupMessageListeners();
 		setupStorageListeners();
 
-		if (availability.canClip) {
-			await checkHighlighterModeState(tabId);
-		}
-
 		return availability;
 	} catch (error) {
 		console.error('Error initializing extension:', error);
@@ -259,6 +256,7 @@ function setupMessageListeners() {
 				if (currentClipAvailability.canClip) {
 					if (currentTabId !== undefined) {
 						clearError();
+						setupClipControlsForTab(currentTabId);
 						refreshFields(currentTabId); // Force template check when URL changes
 					}
 				} else if (currentClipAvailability.errorKey) {
@@ -375,8 +373,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 				await initializeUI();
 
 				if (availability.canClip) {
-					setupEventListeners(currentTabId);
-					determineMainAction();
+					setupClipControlsForTab(currentTabId);
 					await refreshFields(currentTabId);
 				} else if (availability.errorKey) {
 					showError(availability.errorKey);
@@ -417,7 +414,27 @@ function setupTemplateDropdownListener() {
 	}
 }
 
-function setupEventListeners(tabId: number) {
+function getCurrentTabIdForAction(): number | undefined {
+	if (currentTabId === undefined) {
+		showError('pleaseReload');
+		return undefined;
+	}
+	return currentTabId;
+}
+
+function setupClipControlsForTab(tabId: number): void {
+	setupEventListeners();
+	determineMainAction();
+	void checkHighlighterModeState(tabId);
+	void checkReaderModeState(tabId);
+}
+
+function setupEventListeners() {
+	if (clipControlsInitialized) {
+		return;
+	}
+	clipControlsInitialized = true;
+
 	setupTemplateDropdownListener();
 
 	const noteNameField = document.getElementById('note-name-field') as HTMLTextAreaElement;
@@ -432,7 +449,12 @@ function setupEventListeners(tabId: number) {
 
 	const highlighterModeButton = document.getElementById('highlighter-mode');
 	if (highlighterModeButton) {
-		highlighterModeButton.addEventListener('click', () => toggleHighlighterMode(tabId));
+		highlighterModeButton.addEventListener('click', () => {
+			const tabId = getCurrentTabIdForAction();
+			if (tabId !== undefined) {
+				void toggleHighlighterMode(tabId);
+			}
+		});
 	}
 
 	const embeddedModeButton = document.getElementById('embedded-mode');
@@ -574,8 +596,12 @@ function setupEventListeners(tabId: number) {
 
 	const readerModeButton = document.getElementById('reader-mode');
 	if (readerModeButton) {
-		readerModeButton.addEventListener('click', () => toggleReaderMode(tabId));
-		checkReaderModeState(tabId);
+		readerModeButton.addEventListener('click', () => {
+			const tabId = getCurrentTabIdForAction();
+			if (tabId !== undefined) {
+				void toggleReaderMode(tabId);
+			}
+		});
 	}
 }
 
