@@ -5,6 +5,10 @@
 		display: none;
 	}
 
+	&.has-error #template-select {
+		display: block;
+	}
+
 	.side-panel-tabs {
 		display: flex;
 		gap: 4px;
