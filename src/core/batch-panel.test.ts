@@ -64,7 +64,6 @@ describe('initializeBatchPanel path UI', () => {
 			getSelectedVault: () => '',
 			getDefaultPath: () => '',
 			setLastSelectedVault: vi.fn(),
-			showError: vi.fn(),
 		});
 
 		(document.getElementById('batch-new-text') as HTMLInputElement).value = 'Example';
@@ -74,6 +73,20 @@ describe('initializeBatchPanel path UI', () => {
 
 		expect(document.querySelectorAll('.batch-path-input')).toHaveLength(1);
 		expect((document.querySelector('.batch-path-input') as HTMLInputElement).value).toBe('Clippings/Manual');
+	});
+
+	test('shows page-dependent extract errors in the batch summary', () => {
+		initializeBatchPanel({
+			getCurrentTabId: () => 1,
+			getCurrentTemplate: () => null,
+			getSelectedVault: () => '',
+			canExtractLinks: () => false,
+			setLastSelectedVault: vi.fn(),
+		});
+
+		(document.getElementById('batch-extract-links') as HTMLButtonElement).click();
+
+		expect(document.getElementById('batch-summary')?.textContent).toBe('pageCannotBeClipped');
 	});
 });
 

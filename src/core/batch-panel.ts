@@ -22,7 +22,6 @@ interface InitializeBatchPanelOptions {
 	getDefaultPath?: () => string;
 	canExtractLinks?: () => boolean;
 	setLastSelectedVault: (vault: string) => void;
-	showError: (message: string) => void;
 }
 
 interface ExtractLinksResponse {
@@ -160,13 +159,13 @@ function setTabState(tab: HTMLButtonElement, panel: HTMLElement, isActive: boole
 
 async function extractLinks(options: InitializeBatchPanelOptions): Promise<void> {
 	if (options.canExtractLinks && !options.canExtractLinks()) {
-		options.showError('pageCannotBeClipped');
+		showBatchError('pageCannotBeClipped');
 		return;
 	}
 
 	const tabId = options.getCurrentTabId();
 	if (!tabId) {
-		options.showError('No active tab found.');
+		showBatchError('No active tab found.');
 		return;
 	}
 
@@ -178,14 +177,14 @@ async function extractLinks(options: InitializeBatchPanelOptions): Promise<void>
 		}) as ExtractLinksResponse;
 
 		if (!response?.success || !response.links) {
-			options.showError(response?.error || 'Failed to extract links.');
+			showBatchError(response?.error || 'Failed to extract links.');
 			return;
 		}
 
 		queue = createBatchQueue(response.links);
 		renderQueue();
 	} catch (error) {
-		options.showError(error instanceof Error ? error.message : 'Failed to extract links.');
+		showBatchError(error instanceof Error ? error.message : 'Failed to extract links.');
 	}
 }
 
@@ -199,7 +198,7 @@ async function importCsv(importInput: HTMLInputElement, options: InitializeBatch
 		renderQueue();
 		setBatchSummary(`${result.links.length} links imported from ${result.importedRows} rows. ${result.mergedRows} merged, ${result.skippedRows} skipped.`);
 	} catch (error) {
-		options.showError(error instanceof Error ? error.message : 'Failed to import CSV.');
+		showBatchError(error instanceof Error ? error.message : 'Failed to import CSV.');
 	} finally {
 		importInput.value = '';
 	}
@@ -276,6 +275,10 @@ function renderQueue(): void {
 function setBatchSummary(message: string): void {
 	const summary = document.getElementById('batch-summary');
 	if (summary) summary.textContent = message;
+}
+
+function showBatchError(message: string): void {
+	setBatchSummary(message);
 }
 
 function createQueueRow(item: BatchQueueItem): HTMLElement {
@@ -399,13 +402,13 @@ async function runBatch(options: InitializeBatchPanelOptions, items: BatchQueueI
 
 	const template = options.getCurrentTemplate();
 	if (!template) {
-		options.showError('No template selected.');
+		showBatchError('No template selected.');
 		return;
 	}
 
 	const templateCheck = canRunBatchTemplate(template, generalSettings.interpreterEnabled);
 	if (!templateCheck.ok) {
-		options.showError(templateCheck.error);
+		showBatchError(templateCheck.error);
 		return;
 	}
 
@@ -422,7 +425,7 @@ async function runBatch(options: InitializeBatchPanelOptions, items: BatchQueueI
 			await processQueueItem(options, template, selectedVault, defaultPath, item);
 		});
 	} catch (error) {
-		options.showError(error instanceof Error ? error.message : 'Batch failed.');
+		showBatchError(error instanceof Error ? error.message : 'Batch failed.');
 	} finally {
 		isRunning = false;
 		renderQueue();

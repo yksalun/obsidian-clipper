@@ -621,7 +621,6 @@ function initializeSidePanelBatch(): void {
 		setLastSelectedVault: (vault: string) => {
 			lastSelectedVault = vault;
 		},
-		showError,
 	});
 }
 
