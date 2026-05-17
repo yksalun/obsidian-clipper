@@ -16,7 +16,7 @@ import { initializeInterpreter, handleInterpreterUI, collectPromptVariables } fr
 import { adjustNoteNameHeight } from '../utils/ui-utils';
 import { debugLog } from '../utils/debug';
 import { showVariables, initializeVariablesPanel, updateVariablesPanel } from '../managers/inspect-variables';
-import { isBlankPage, isValidUrl, isRestrictedUrl } from '../utils/active-tab-manager';
+import { ClipAvailability, getClipAvailability, isBlankPage, isValidUrl, isRestrictedUrl } from '../utils/active-tab-manager';
 import { memoizeWithExpiration } from '../utils/memoize';
 import { debounce } from '../utils/debounce';
 import { sanitizeFileName } from '../utils/string-utils';
@@ -35,6 +35,7 @@ let currentTemplate: Template | null = null;
 let templates: Template[] = [];
 let currentVariables: { [key: string]: string } = {};
 let currentTabId: number | undefined;
+let currentClipAvailability: ClipAvailability | null = null;
 let lastSelectedVault: string | null = null;
 
 const isSidePanel = window.location.pathname.includes('side-panel.html');
@@ -156,7 +157,7 @@ function setPopupDimensions() {
 
 const debouncedSetPopupDimensions = debounce(setPopupDimensions, 100); // 100ms delay
 
-async function initializeExtension(tabId: number) {
+async function initializeExtension(tabId: number): Promise<ClipAvailability | null> {
 	try {
 		// Initialize translations
 		await translatePage();
@@ -200,30 +201,21 @@ async function initializeExtension(tabId: number) {
 		debugLog('Vaults', 'Last selected vault:', lastSelectedVault);
 
 		const tab = await getTabInfo(tabId);
-		if (!tab.url || isBlankPage(tab.url)) {
-			showError('pageCannotBeClipped');
-			return;
-		}
-		if (!isValidUrl(tab.url)) {
-			showError('onlyHttpSupported');
-			return;
-		}
-		if (isRestrictedUrl(tab.url)) {
-			showError('pageCannotBeClipped');
-			return;
-		}
+		const availability = getClipAvailability(tab.url);
 
 		// Setup message listeners
 		setupMessageListeners();
 		setupStorageListeners();
 
-		await checkHighlighterModeState(tabId);
+		if (availability.canClip) {
+			await checkHighlighterModeState(tabId);
+		}
 
-		return true;
+		return availability;
 	} catch (error) {
 		console.error('Error initializing extension:', error);
 		showError('failedToInitialize');
-		return false;
+		return null;
 	}
 }
 
@@ -263,16 +255,14 @@ function setupMessageListeners() {
 			// Only handle active tab changes if we're in side panel mode, not iframe mode
 			if (!isIframe) {
 				currentTabId = request.tabId;
-				if (request.isRestrictedUrl) {
-					showError('pageCannotBeClipped');
-				} else if (request.isValidUrl) {
+				currentClipAvailability = getClipAvailability(request.url);
+				if (currentClipAvailability.canClip) {
 					if (currentTabId !== undefined) {
+						clearError();
 						refreshFields(currentTabId); // Force template check when URL changes
 					}
-				} else if (request.isBlankPage) {
-					showError('pageCannotBeClipped');
-				} else {
-					showError('onlyHttpSupported');
+				} else if (currentClipAvailability.errorKey) {
+					showError(currentClipAvailability.errorKey);
 				}
 			}
 		} else if (request.action === "updatePopupHighlighterUI") {
@@ -371,33 +361,29 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 		// Initialize the rest of the popup
 		if (currentTabId) {
-			const initialized = await initializeExtension(currentTabId);
-			if (!initialized) {
+			const availability = await initializeExtension(currentTabId);
+			if (!availability) {
 				return;
 			}
+			currentClipAvailability = availability;
 
 			try {
 				// DOM-dependent initializations
 				updateVaultDropdown(loadedSettings.vaults);
 				populateTemplateDropdown();
-				setupEventListeners(currentTabId);
+				setupTemplateDropdownListener();
 				await initializeUI();
 
-				determineMainAction();
+				if (availability.canClip) {
+					setupEventListeners(currentTabId);
+					determineMainAction();
+					await refreshFields(currentTabId);
+				} else if (availability.errorKey) {
+					showError(availability.errorKey);
+				}
 
 				if (isSidePanel && !isIframe) {
-					initializeBatchPanel({
-						getCurrentTabId: () => currentTabId,
-						getCurrentTemplate: () => currentTemplate,
-						getSelectedVault: () => {
-							const vaultDropdown = document.getElementById('vault-select') as HTMLSelectElement | null;
-							return vaultDropdown?.value || currentTemplate?.vault || '';
-						},
-						setLastSelectedVault: (vault: string) => {
-							lastSelectedVault = vault;
-						},
-						showError,
-					});
+					initializeSidePanelBatch();
 				}
 
 				const showMoreActionsButton = document.getElementById('show-variables');
@@ -408,8 +394,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 					});
 				}
 
-				// Initial content load
-				await refreshFields(currentTabId);
 			} catch (error) {
 				console.error('Error initializing popup:', error);
 				showError(getMessage('pleaseReload'));
@@ -423,13 +407,18 @@ document.addEventListener('DOMContentLoaded', async function() {
 	}
 });
 
-function setupEventListeners(tabId: number) {
+function setupTemplateDropdownListener() {
 	const templateDropdown = document.getElementById('template-select') as HTMLSelectElement;
-	if (templateDropdown) {
+	if (templateDropdown && templateDropdown.dataset.listenerInitialized !== 'true') {
 		templateDropdown.addEventListener('change', function(this: HTMLSelectElement) {
 			handleTemplateChange(this.value);
 		});
+		templateDropdown.dataset.listenerInitialized = 'true';
 	}
+}
+
+function setupEventListeners(tabId: number) {
+	setupTemplateDropdownListener();
 
 	const noteNameField = document.getElementById('note-name-field') as HTMLTextAreaElement;
 	if (noteNameField) {
@@ -590,6 +579,26 @@ function setupEventListeners(tabId: number) {
 	}
 }
 
+function initializeSidePanelBatch(): void {
+	initializeBatchPanel({
+		getCurrentTabId: () => currentTabId,
+		getCurrentTemplate: () => currentTemplate,
+		getSelectedVault: () => {
+			const vaultDropdown = document.getElementById('vault-select') as HTMLSelectElement | null;
+			return vaultDropdown?.value || currentTemplate?.vault || '';
+		},
+		getDefaultPath: () => {
+			const pathField = document.getElementById('path-name-field') as HTMLInputElement | null;
+			return pathField?.value || pathField?.dataset.templateValue || currentTemplate?.path || '';
+		},
+		canExtractLinks: () => currentClipAvailability?.canExtractLinks ?? false,
+		setLastSelectedVault: (vault: string) => {
+			lastSelectedVault = vault;
+		},
+		showError,
+	});
+}
+
 async function initializeUI() {
 	const clipButton = document.getElementById('clip-btn');
 	if (clipButton) {
@@ -690,6 +699,7 @@ async function refreshFields(tabId: number, { checkTemplateTriggers = true, rebu
 			showError('pageCannotBeClipped');
 			return;
 		}
+		clearError();
 
 		// Start content extraction (don't await yet)
 		const extractionPromise = memoizedExtractPageContent(tabId);
