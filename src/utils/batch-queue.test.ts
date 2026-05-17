@@ -111,6 +111,14 @@ describe('resolveBatchSavePaths', () => {
 			'Rendered'
 		)).toEqual(['One', 'Two']);
 	});
+
+	test('returns root path when item, default, and rendered paths are empty', () => {
+		expect(resolveBatchSavePaths(
+			{ id: '1', text: 'A', url: 'https://a.test', paths: [], status: 'idle' },
+			'',
+			''
+		)).toEqual(['']);
+	});
 });
 
 describe('runWithConcurrency', () => {

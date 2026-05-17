@@ -55,6 +55,7 @@
 	}
 
 	.batch-controls,
+	.batch-import-row,
 	.batch-add-row,
 	.batch-run-row {
 		display: flex;
@@ -66,6 +67,29 @@
 	.batch-controls {
 		display: grid;
 		grid-template-columns: 1fr auto;
+	}
+
+	.batch-default-path-label,
+	.batch-path-list,
+	.batch-path-row {
+		display: flex;
+		gap: 8px;
+		min-width: 0;
+	}
+
+	.batch-default-path-label,
+	.batch-path-list {
+		flex-direction: column;
+	}
+
+	.batch-default-path-label,
+	.batch-import-row {
+		grid-column: 1 / -1;
+	}
+
+	.batch-import-row {
+		flex-wrap: wrap;
+		padding: 0;
 	}
 
 	.batch-run-row {
@@ -143,6 +167,16 @@
 	.batch-add-row {
 		display: grid;
 		grid-template-columns: 1fr;
+	}
+
+	.batch-path-list {
+		margin-top: 6px;
+	}
+
+	.batch-path-row input,
+	.batch-default-path-label input {
+		min-width: 0;
+		width: 100%;
 	}
 
 	.batch-add-row input,

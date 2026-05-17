@@ -66,7 +66,8 @@ export function resolveBatchSavePaths(
 	const defaultPaths = normalizePathList([defaultPath]);
 	if (defaultPaths.length > 0) return defaultPaths;
 
-	return normalizePathList([renderedPath]);
+	const renderedPaths = normalizePathList([renderedPath]);
+	return renderedPaths.length > 0 ? renderedPaths : [''];
 }
 
 function normalizePathList(paths: string[]): string[] {

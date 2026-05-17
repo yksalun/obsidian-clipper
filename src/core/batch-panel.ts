@@ -5,11 +5,13 @@ import {
 	createBatchQueue,
 	getBatchSummary,
 	normalizeBatchConcurrency,
+	resolveBatchSavePaths,
 	runWithConcurrency,
 	updateBatchQueueItem,
 } from '../utils/batch-queue';
 import { ExtractedBatchLink, normalizeLinkUrl } from '../utils/batch-links';
-import { canRunBatchTemplate, renderBatchNote, BatchExtractedPageContent } from '../utils/batch-renderer';
+import { canRunBatchTemplate, renderBatchNote, BatchExtractedPageContent, RenderedBatchNote } from '../utils/batch-renderer';
+import { createBatchCsvSample, importBatchCsv } from '../utils/batch-csv';
 import { saveToObsidian } from '../utils/obsidian-note-creator';
 import { generalSettings, incrementStat, setLocalStorage } from '../utils/storage-utils';
 
@@ -17,6 +19,8 @@ interface InitializeBatchPanelOptions {
 	getCurrentTabId: () => number | undefined;
 	getCurrentTemplate: () => Template | null;
 	getSelectedVault: () => string;
+	getDefaultPath?: () => string;
+	canExtractLinks?: () => boolean;
 	setLastSelectedVault: (vault: string) => void;
 	showError: (message: string) => void;
 }
@@ -42,15 +46,39 @@ let manualLinkId = 0;
 
 const SAVE_SETTLE_DELAY_MS = 1500;
 
+type BatchSaveFunction = typeof saveToObsidian;
+type BatchWaitFunction = (ms: number) => Promise<void>;
+
+export async function saveRenderedBatchNoteToPaths(
+	rendered: RenderedBatchNote,
+	paths: string[],
+	save: BatchSaveFunction = saveToObsidian,
+	wait: BatchWaitFunction = delay
+): Promise<void> {
+	for (const path of paths) {
+		try {
+			await save(rendered.fileContent, rendered.noteName, path, rendered.vault, rendered.behavior);
+			await wait(SAVE_SETTLE_DELAY_MS);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			throw new Error(`Failed to save to ${path}: ${message}`);
+		}
+	}
+}
+
 export function initializeBatchPanel(options: InitializeBatchPanelOptions): void {
 	const elements = getBatchPanelElements();
 	if (!elements) return;
 
-	const { clipTab, batchTab, extractButton, runButton, retryButton, addButton } = elements;
+	const { clipTab, batchTab, extractButton, importInput, downloadSampleButton, runButton, retryButton, addButton, defaultPathInput } = elements;
+
+	defaultPathInput.value = options.getDefaultPath?.() || '';
 
 	clipTab.addEventListener('click', () => activatePanel('clip', elements));
 	batchTab.addEventListener('click', () => activatePanel('batch', elements));
 	extractButton.addEventListener('click', () => extractLinks(options));
+	importInput.addEventListener('change', () => importCsv(importInput, options));
+	downloadSampleButton.addEventListener('click', () => downloadSampleCsv());
 	addButton.addEventListener('click', () => addManualLink());
 	runButton.addEventListener('click', () => runBatch(options, queue.filter(item => item.status !== 'success')));
 	retryButton.addEventListener('click', () => runBatch(options, queue.filter(item => item.status === 'failed')));
@@ -64,9 +92,12 @@ interface BatchPanelElements {
 	clipPanel: HTMLElement;
 	batchPanel: HTMLElement;
 	extractButton: HTMLButtonElement;
+	importInput: HTMLInputElement;
+	downloadSampleButton: HTMLButtonElement;
 	runButton: HTMLButtonElement;
 	retryButton: HTMLButtonElement;
 	addButton: HTMLButtonElement;
+	defaultPathInput: HTMLInputElement;
 }
 
 function getBatchPanelElements(): BatchPanelElements | null {
@@ -75,11 +106,26 @@ function getBatchPanelElements(): BatchPanelElements | null {
 	const clipPanel = document.getElementById('clip-panel') as HTMLElement | null;
 	const batchPanel = document.getElementById('batch-panel') as HTMLElement | null;
 	const extractButton = document.getElementById('batch-extract-links') as HTMLButtonElement | null;
+	const importInput = document.getElementById('batch-import-csv') as HTMLInputElement | null;
+	const downloadSampleButton = document.getElementById('batch-download-sample') as HTMLButtonElement | null;
 	const runButton = document.getElementById('batch-run') as HTMLButtonElement | null;
 	const retryButton = document.getElementById('batch-retry-failed') as HTMLButtonElement | null;
 	const addButton = document.getElementById('batch-add-link') as HTMLButtonElement | null;
+	const defaultPathInput = document.getElementById('batch-default-path') as HTMLInputElement | null;
 
-	if (!clipTab || !batchTab || !clipPanel || !batchPanel || !extractButton || !runButton || !retryButton || !addButton) {
+	if (
+		!clipTab ||
+		!batchTab ||
+		!clipPanel ||
+		!batchPanel ||
+		!extractButton ||
+		!importInput ||
+		!downloadSampleButton ||
+		!runButton ||
+		!retryButton ||
+		!addButton ||
+		!defaultPathInput
+	) {
 		return null;
 	}
 
@@ -89,9 +135,12 @@ function getBatchPanelElements(): BatchPanelElements | null {
 		clipPanel,
 		batchPanel,
 		extractButton,
+		importInput,
+		downloadSampleButton,
 		runButton,
 		retryButton,
 		addButton,
+		defaultPathInput,
 	};
 }
 
@@ -110,6 +159,11 @@ function setTabState(tab: HTMLButtonElement, panel: HTMLElement, isActive: boole
 }
 
 async function extractLinks(options: InitializeBatchPanelOptions): Promise<void> {
+	if (options.canExtractLinks && !options.canExtractLinks()) {
+		options.showError('pageCannotBeClipped');
+		return;
+	}
+
 	const tabId = options.getCurrentTabId();
 	if (!tabId) {
 		options.showError('No active tab found.');
@@ -135,14 +189,43 @@ async function extractLinks(options: InitializeBatchPanelOptions): Promise<void>
 	}
 }
 
+async function importCsv(importInput: HTMLInputElement, options: InitializeBatchPanelOptions): Promise<void> {
+	const file = importInput.files?.[0];
+	if (!file) return;
+
+	try {
+		const result = importBatchCsv(await file.text());
+		queue = createBatchQueue(result.links);
+		renderQueue();
+		setBatchSummary(`${result.links.length} links imported from ${result.importedRows} rows. ${result.mergedRows} merged, ${result.skippedRows} skipped.`);
+	} catch (error) {
+		options.showError(error instanceof Error ? error.message : 'Failed to import CSV.');
+	} finally {
+		importInput.value = '';
+	}
+}
+
+function downloadSampleCsv(): void {
+	const sample = createBatchCsvSample();
+	const blob = new Blob([sample.content], { type: 'text/csv;charset=utf-8' });
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = sample.filename;
+	link.click();
+	URL.revokeObjectURL(url);
+}
+
 function addManualLink(): void {
 	const textInput = document.getElementById('batch-new-text') as HTMLInputElement | null;
 	const urlInput = document.getElementById('batch-new-url') as HTMLInputElement | null;
+	const pathInput = document.getElementById('batch-new-path') as HTMLInputElement | null;
 	if (!textInput || !urlInput) return;
 
 	const normalizedUrl = normalizeLinkUrl(urlInput.value, window.location.href);
 	if (!normalizedUrl) return;
 
+	const path = pathInput?.value.trim() || '';
 	manualLinkId += 1;
 	queue = [
 		...queue,
@@ -150,12 +233,14 @@ function addManualLink(): void {
 			id: `manual-${Date.now()}-${manualLinkId}`,
 			text: textInput.value.trim() || normalizedUrl,
 			url: normalizedUrl,
+			paths: path ? [path] : [],
 			status: 'idle',
 		},
 	];
 
 	textInput.value = '';
 	urlInput.value = '';
+	if (pathInput) pathInput.value = '';
 	renderQueue();
 }
 
@@ -165,6 +250,8 @@ function renderQueue(): void {
 	const runButton = document.getElementById('batch-run') as HTMLButtonElement | null;
 	const retryButton = document.getElementById('batch-retry-failed') as HTMLButtonElement | null;
 	const extractButton = document.getElementById('batch-extract-links') as HTMLButtonElement | null;
+	const importInput = document.getElementById('batch-import-csv') as HTMLInputElement | null;
+	const downloadSampleButton = document.getElementById('batch-download-sample') as HTMLButtonElement | null;
 	const addButton = document.getElementById('batch-add-link') as HTMLButtonElement | null;
 	if (!container || !summary) return;
 
@@ -177,11 +264,18 @@ function renderQueue(): void {
 	if (runButton) runButton.disabled = isRunning || !queue.some(item => item.status !== 'success');
 	if (retryButton) retryButton.disabled = isRunning || !queue.some(item => item.status === 'failed');
 	if (extractButton) extractButton.disabled = isRunning;
+	if (importInput) importInput.disabled = isRunning;
+	if (downloadSampleButton) downloadSampleButton.disabled = isRunning;
 	if (addButton) addButton.disabled = isRunning;
 
 	for (const item of queue) {
 		container.appendChild(createQueueRow(item));
 	}
+}
+
+function setBatchSummary(message: string): void {
+	const summary = document.getElementById('batch-summary');
+	if (summary) summary.textContent = message;
 }
 
 function createQueueRow(item: BatchQueueItem): HTMLElement {
@@ -211,6 +305,7 @@ function createQueueRow(item: BatchQueueItem): HTMLElement {
 	});
 
 	fields.append(textInput, urlInput);
+	fields.appendChild(createPathList(item));
 
 	const actions = document.createElement('div');
 	actions.className = 'batch-queue-item-actions';
@@ -232,6 +327,71 @@ function createQueueRow(item: BatchQueueItem): HTMLElement {
 	actions.append(status, removeButton);
 	row.append(fields, actions);
 	return row;
+}
+
+function createPathList(item: BatchQueueItem): HTMLElement {
+	const pathList = document.createElement('div');
+	pathList.className = 'batch-path-list';
+
+	const paths = item.paths.length > 0 ? item.paths : [''];
+	for (const path of paths) {
+		appendPathRow(pathList, item.id, path);
+	}
+
+	const addPathButton = document.createElement('button');
+	addPathButton.className = 'batch-add-path';
+	addPathButton.type = 'button';
+	addPathButton.textContent = 'Add path';
+	addPathButton.disabled = isRunning;
+	addPathButton.addEventListener('click', () => {
+		appendPathRow(pathList, item.id, '');
+	});
+	pathList.appendChild(addPathButton);
+
+	return pathList;
+}
+
+function appendPathRow(pathList: HTMLElement, itemId: string, path: string): void {
+	const row = document.createElement('div');
+	row.className = 'batch-path-row';
+
+	const input = document.createElement('input');
+	input.className = 'batch-path-input';
+	input.type = 'text';
+	input.placeholder = 'Obsidian path';
+	input.value = path;
+	input.disabled = isRunning;
+	input.addEventListener('input', () => {
+		updateItemPathsFromPathList(itemId, pathList);
+	});
+
+	const removeButton = document.createElement('button');
+	removeButton.className = 'batch-remove-path';
+	removeButton.type = 'button';
+	removeButton.textContent = 'Remove path';
+	removeButton.disabled = isRunning;
+	removeButton.addEventListener('click', () => {
+		row.remove();
+		if (!pathList.querySelector('.batch-path-input')) {
+			appendPathRow(pathList, itemId, '');
+		}
+		updateItemPathsFromPathList(itemId, pathList);
+	});
+
+	row.append(input, removeButton);
+	const addPathButton = pathList.querySelector('.batch-add-path');
+	if (addPathButton) {
+		pathList.insertBefore(row, addPathButton);
+	} else {
+		pathList.appendChild(row);
+	}
+}
+
+function updateItemPathsFromPathList(itemId: string, pathList: HTMLElement): void {
+	const paths = Array.from(pathList.querySelectorAll<HTMLInputElement>('.batch-path-input'))
+		.map(input => input.value.trim())
+		.filter(Boolean);
+	queue = updateBatchQueueItem(queue, itemId, { paths });
 }
 
 async function runBatch(options: InitializeBatchPanelOptions, items: BatchQueueItem[]): Promise<void> {
@@ -256,9 +416,10 @@ async function runBatch(options: InitializeBatchPanelOptions, items: BatchQueueI
 		const concurrencyInput = document.getElementById('batch-concurrency') as HTMLInputElement | null;
 		const concurrency = normalizeBatchConcurrency(Number(concurrencyInput?.value || 1));
 		const selectedVault = options.getSelectedVault();
+		const defaultPath = getBatchDefaultPath();
 
 		await runWithConcurrency(items, concurrency, async (item) => {
-			await processQueueItem(options, template, selectedVault, item);
+			await processQueueItem(options, template, selectedVault, defaultPath, item);
 		});
 	} catch (error) {
 		options.showError(error instanceof Error ? error.message : 'Batch failed.');
@@ -272,6 +433,7 @@ async function processQueueItem(
 	options: InitializeBatchPanelOptions,
 	template: Template,
 	selectedVault: string,
+	defaultPath: string,
 	item: BatchQueueItem
 ): Promise<void> {
 	let tempTabId: number | undefined;
@@ -307,16 +469,14 @@ async function processQueueItem(
 		queue = updateBatchQueueItem(queue, item.id, { status: 'saving' });
 		renderQueue();
 
-		await enqueueSave(async () => {
-			await saveToObsidian(rendered.fileContent, rendered.noteName, rendered.path, rendered.vault, rendered.behavior);
-			await delay(SAVE_SETTLE_DELAY_MS);
-		});
+		const savePaths = resolveBatchSavePaths(item, defaultPath, rendered.path);
+		await enqueueSave(async () => saveRenderedBatchNoteToPaths(rendered, savePaths));
 
 		queue = updateBatchQueueItem(queue, item.id, { status: 'success', error: undefined });
 		renderQueue();
 
 		try {
-			await incrementStat('addToObsidian', rendered.vault, rendered.path, item.url, rendered.title || item.text);
+			await incrementStat('addToObsidian', rendered.vault, savePaths[0] ?? rendered.path, item.url, rendered.title || item.text);
 			options.setLastSelectedVault(rendered.vault);
 			await setLocalStorage('lastSelectedVault', rendered.vault);
 		} catch (error) {
@@ -333,6 +493,11 @@ async function processQueueItem(
 		});
 		renderQueue();
 	}
+}
+
+function getBatchDefaultPath(): string {
+	const defaultPathInput = document.getElementById('batch-default-path') as HTMLInputElement | null;
+	return defaultPathInput?.value.trim() || '';
 }
 
 async function closeTemporaryTab(tabId: number): Promise<void> {
