@@ -17,4 +17,23 @@ describe('side-panel error layout', () => {
 		expect(clipPanel?.contains(errorMessage)).toBe(true);
 		expect(batchPanel?.contains(errorMessage)).toBe(false);
 	});
+
+	test('keeps batch actions above the summary in a sticky header', () => {
+		const html = readFileSync(new URL('./side-panel.html', import.meta.url), 'utf8');
+		const styles = readFileSync(new URL('./styles/side-panel.scss', import.meta.url), 'utf8');
+		const { document } = parseHTML(html);
+
+		const stickyHeader = document.querySelector('.batch-sticky-header');
+		const controls = document.querySelector('.batch-controls');
+		const runRow = document.querySelector('.batch-run-row');
+		const summary = document.getElementById('batch-summary');
+		const queue = document.getElementById('batch-queue');
+
+		expect(stickyHeader?.contains(controls)).toBe(true);
+		expect(stickyHeader?.contains(runRow)).toBe(true);
+		expect(stickyHeader?.contains(summary)).toBe(true);
+		expect(stickyHeader?.contains(queue)).toBe(false);
+		expect(Array.from(stickyHeader!.children)).toEqual([controls, runRow, summary]);
+		expect(styles).toMatch(/\.batch-sticky-header\s*\{[\s\S]*position:\s*sticky;[\s\S]*top:\s*0;/);
+	});
 });

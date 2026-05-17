@@ -14,6 +14,7 @@ import { canRunBatchTemplate, renderBatchNote, BatchExtractedPageContent, Render
 import { createBatchCsvSample, importBatchCsv } from '../utils/batch-csv';
 import { saveToObsidian } from '../utils/obsidian-note-creator';
 import { generalSettings, incrementStat, setLocalStorage } from '../utils/storage-utils';
+import { initializeIcons } from '../icons/icons';
 
 interface InitializeBatchPanelOptions {
 	getCurrentTabId: () => number | undefined;
@@ -341,20 +342,10 @@ function createPathList(item: BatchQueueItem): HTMLElement {
 		appendPathRow(pathList, item.id, path);
 	}
 
-	const addPathButton = document.createElement('button');
-	addPathButton.className = 'batch-add-path';
-	addPathButton.type = 'button';
-	addPathButton.textContent = 'Add path';
-	addPathButton.disabled = isRunning;
-	addPathButton.addEventListener('click', () => {
-		appendPathRow(pathList, item.id, '');
-	});
-	pathList.appendChild(addPathButton);
-
 	return pathList;
 }
 
-function appendPathRow(pathList: HTMLElement, itemId: string, path: string): void {
+function appendPathRow(pathList: HTMLElement, itemId: string, path: string, afterRow?: HTMLElement): HTMLElement {
 	const row = document.createElement('div');
 	row.className = 'batch-path-row';
 
@@ -368,11 +359,27 @@ function appendPathRow(pathList: HTMLElement, itemId: string, path: string): voi
 		updateItemPathsFromPathList(itemId, pathList);
 	});
 
+	const actions = document.createElement('div');
+	actions.className = 'batch-path-actions';
+
+	const addButton = createPathIconButton('batch-add-path', 'Add path', 'plus');
+	addButton.addEventListener('click', () => {
+		const newRow = appendPathRow(pathList, itemId, '', row);
+		const newInput = newRow.querySelector<HTMLInputElement>('.batch-path-input');
+		newInput?.focus();
+		updateItemPathsFromPathList(itemId, pathList);
+	});
+
 	const removeButton = document.createElement('button');
-	removeButton.className = 'batch-remove-path';
+	removeButton.className = 'batch-remove-path clickable-icon batch-path-icon-button';
 	removeButton.type = 'button';
-	removeButton.textContent = 'Remove path';
+	removeButton.setAttribute('aria-label', 'Remove path');
+	removeButton.title = 'Remove path';
 	removeButton.disabled = isRunning;
+	const removeIcon = document.createElement('i');
+	removeIcon.setAttribute('data-lucide', 'trash-2');
+	removeIcon.setAttribute('aria-hidden', 'true');
+	removeButton.appendChild(removeIcon);
 	removeButton.addEventListener('click', () => {
 		row.remove();
 		if (!pathList.querySelector('.batch-path-input')) {
@@ -381,13 +388,32 @@ function appendPathRow(pathList: HTMLElement, itemId: string, path: string): voi
 		updateItemPathsFromPathList(itemId, pathList);
 	});
 
-	row.append(input, removeButton);
-	const addPathButton = pathList.querySelector('.batch-add-path');
-	if (addPathButton) {
-		pathList.insertBefore(row, addPathButton);
+	actions.append(addButton, removeButton);
+	row.append(input, actions);
+
+	if (afterRow?.parentElement === pathList) {
+		afterRow.after(row);
 	} else {
 		pathList.appendChild(row);
 	}
+	initializeIcons(row);
+	return row;
+}
+
+function createPathIconButton(className: string, label: string, iconName: string): HTMLButtonElement {
+	const button = document.createElement('button');
+	button.className = `${className} clickable-icon batch-path-icon-button`;
+	button.type = 'button';
+	button.setAttribute('aria-label', label);
+	button.title = label;
+	button.disabled = isRunning;
+
+	const icon = document.createElement('i');
+	icon.setAttribute('data-lucide', iconName);
+	icon.setAttribute('aria-hidden', 'true');
+	button.appendChild(icon);
+
+	return button;
 }
 
 function updateItemPathsFromPathList(itemId: string, pathList: HTMLElement): void {

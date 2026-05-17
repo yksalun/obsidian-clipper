@@ -58,6 +58,14 @@
 		overflow-y: auto;
 	}
 
+	.batch-sticky-header {
+		position: sticky;
+		top: 0;
+		z-index: 2;
+		background: var(--background-primary);
+		border-bottom: 1px solid var(--divider-color);
+	}
+
 	.batch-controls,
 	.batch-import-row,
 	.batch-add-row,
@@ -97,6 +105,8 @@
 	}
 
 	.batch-run-row {
+		padding-top: 0;
+		padding-bottom: 8px;
 		justify-content: flex-end;
 	}
 
@@ -114,7 +124,7 @@
 	}
 
 	.batch-summary {
-		padding: 0 12px 8px;
+		padding: 0 12px 10px;
 		color: var(--text-muted);
 		font-size: var(--font-ui-small);
 	}
@@ -130,7 +140,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		padding: 0 12px 12px;
+		padding: 12px 12px;
 	}
 
 	.batch-queue-item {
@@ -175,6 +185,20 @@
 
 	.batch-path-list {
 		margin-top: 6px;
+	}
+
+	.batch-path-row {
+		align-items: center;
+	}
+
+	.batch-path-actions {
+		display: flex;
+		flex: 0 0 auto;
+		gap: 2px;
+	}
+
+	.batch-path-icon-button {
+		flex: 0 0 auto;
 	}
 
 	.batch-path-row input,

@@ -20,6 +20,10 @@ vi.mock('../utils/batch-renderer', () => ({
 	renderBatchNote: vi.fn(),
 }));
 
+vi.mock('../icons/icons', () => ({
+	initializeIcons: vi.fn(),
+}));
+
 import { initializeBatchPanel, saveRenderedBatchNoteToPaths } from './batch-panel';
 
 function setupDom(): void {
@@ -73,6 +77,34 @@ describe('initializeBatchPanel path UI', () => {
 
 		expect(document.querySelectorAll('.batch-path-input')).toHaveLength(1);
 		expect((document.querySelector('.batch-path-input') as HTMLInputElement).value).toBe('Clippings/Manual');
+	});
+
+	test('renders icon-only add and remove buttons beside each path input', () => {
+		initializeBatchPanel({
+			getCurrentTabId: () => undefined,
+			getCurrentTemplate: () => null,
+			getSelectedVault: () => '',
+			getDefaultPath: () => '',
+			setLastSelectedVault: vi.fn(),
+		});
+
+		(document.getElementById('batch-new-text') as HTMLInputElement).value = 'Example';
+		(document.getElementById('batch-new-url') as HTMLInputElement).value = 'https://example.com/a';
+		(document.getElementById('batch-new-path') as HTMLInputElement).value = 'Clippings/Manual';
+		(document.getElementById('batch-add-link') as HTMLButtonElement).click();
+
+		const pathRow = document.querySelector('.batch-path-row') as HTMLElement;
+		const addButton = pathRow.querySelector('.batch-add-path') as HTMLButtonElement;
+		const removeButton = pathRow.querySelector('.batch-remove-path') as HTMLButtonElement;
+
+		expect(pathRow.children[0].classList.contains('batch-path-input')).toBe(true);
+		expect(pathRow.children[1].classList.contains('batch-path-actions')).toBe(true);
+		expect(addButton?.textContent).toBe('');
+		expect(addButton?.getAttribute('aria-label')).toBe('Add path');
+		expect(addButton?.querySelector('[data-lucide="plus"]')).toBeTruthy();
+		expect(removeButton?.textContent).toBe('');
+		expect(removeButton?.getAttribute('aria-label')).toBe('Remove path');
+		expect(removeButton?.querySelector('[data-lucide="trash-2"]')).toBeTruthy();
 	});
 
 	test('shows page-dependent extract errors in the batch summary', () => {

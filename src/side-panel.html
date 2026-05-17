@@ -91,33 +91,35 @@
 			</div>
 		</section>
 		<section id="batch-panel" class="side-panel-tab-panel" role="tabpanel" aria-labelledby="batch-tab" hidden>
-			<div class="batch-controls">
-				<div id="batch-context" class="batch-context">Using the selected template and vault.</div>
-				<label class="batch-default-path-label" for="batch-default-path">
-					Default path
-					<input id="batch-default-path" type="text" placeholder="Clippings">
-				</label>
-				<div class="batch-import-row">
-					<input id="batch-import-csv" type="file" accept=".csv,text/csv">
-					<button id="batch-download-sample" type="button">Download sample CSV</button>
-					<button id="batch-extract-links" type="button">Extract links</button>
+			<div class="batch-sticky-header">
+				<div class="batch-controls">
+					<div id="batch-context" class="batch-context">Using the selected template and vault.</div>
+					<label class="batch-default-path-label" for="batch-default-path">
+						Default path
+						<input id="batch-default-path" type="text" placeholder="Clippings">
+					</label>
+					<div class="batch-import-row">
+						<input id="batch-import-csv" type="file" accept=".csv,text/csv">
+						<button id="batch-download-sample" type="button">Download sample CSV</button>
+						<button id="batch-extract-links" type="button">Extract links</button>
+					</div>
+					<label class="batch-concurrency-label" for="batch-concurrency">
+						Concurrency
+						<input id="batch-concurrency" type="number" min="1" max="3" value="1">
+					</label>
 				</div>
-				<label class="batch-concurrency-label" for="batch-concurrency">
-					Concurrency
-					<input id="batch-concurrency" type="number" min="1" max="3" value="1">
-				</label>
+				<div class="batch-run-row">
+					<button id="batch-run" class="mod-cta" type="button">Run batch</button>
+					<button id="batch-retry-failed" type="button" disabled>Retry failed</button>
+				</div>
+				<div id="batch-summary" class="batch-summary">No links extracted.</div>
 			</div>
-			<div id="batch-summary" class="batch-summary">No links extracted.</div>
 			<div id="batch-queue" class="batch-queue"></div>
 			<div class="batch-add-row">
 				<input id="batch-new-text" type="text" placeholder="Link text">
 				<input id="batch-new-url" type="url" placeholder="https://example.com/page">
 				<input id="batch-new-path" type="text" placeholder="Obsidian path">
 				<button id="batch-add-link" type="button">Add link</button>
-			</div>
-			<div class="batch-run-row">
-				<button id="batch-run" class="mod-cta" type="button">Run batch</button>
-				<button id="batch-retry-failed" type="button" disabled>Retry failed</button>
 			</div>
 		</section>
 		<script type="module" src="popup.js"></script>
