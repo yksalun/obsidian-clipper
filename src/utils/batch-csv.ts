@@ -142,6 +142,7 @@ export function importBatchCsv(csvText: string): BatchCsvImportResult {
 		return result;
 	}
 
+	const links: MutableBatchCsvImportLink[] = [];
 	const linksByUrl = new Map<string, MutableBatchCsvImportLink>();
 	const dataRows = rows.slice(rows.indexOf(headerRow) + 1);
 
@@ -165,7 +166,7 @@ export function importBatchCsv(csvText: string): BatchCsvImportResult {
 
 		if (!link) {
 			link = {
-				id: `csv-link-${result.links.length + 1}`,
+				id: `csv-link-${links.length + 1}`,
 				text: rawText || url,
 				url,
 				paths: [],
@@ -173,7 +174,7 @@ export function importBatchCsv(csvText: string): BatchCsvImportResult {
 				seenPaths: new Set<string>(),
 			};
 			linksByUrl.set(url, link);
-			result.links.push(link);
+			links.push(link);
 		} else {
 			result.mergedRows += 1;
 			if (!link.hasText && rawText) {
@@ -188,7 +189,7 @@ export function importBatchCsv(csvText: string): BatchCsvImportResult {
 		}
 	}
 
-	result.links = result.links.map(({ hasText, seenPaths, ...link }) => link);
+	result.links = links.map(({ hasText, seenPaths, ...link }) => link);
 	return result;
 }
 

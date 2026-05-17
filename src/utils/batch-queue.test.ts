@@ -82,7 +82,7 @@ describe('getBatchSummary', () => {
 describe('resolveBatchSavePaths', () => {
 	test('uses item paths before the default and rendered paths', () => {
 		expect(resolveBatchSavePaths(
-			{ id: '1', text: 'A', url: 'https://a.test', paths: ['One', 'Two'], status: 'idle' },
+			{ paths: ['One', 'Two'] },
 			'Default',
 			'Rendered'
 		)).toEqual(['One', 'Two']);
@@ -90,7 +90,7 @@ describe('resolveBatchSavePaths', () => {
 
 	test('uses default path when item paths are empty', () => {
 		expect(resolveBatchSavePaths(
-			{ id: '1', text: 'A', url: 'https://a.test', paths: [], status: 'idle' },
+			{ paths: [] },
 			'Default',
 			'Rendered'
 		)).toEqual(['Default']);
@@ -98,7 +98,7 @@ describe('resolveBatchSavePaths', () => {
 
 	test('falls back to rendered template path when item and default paths are empty', () => {
 		expect(resolveBatchSavePaths(
-			{ id: '1', text: 'A', url: 'https://a.test', paths: [], status: 'idle' },
+			{ paths: [] },
 			'',
 			'Rendered'
 		)).toEqual(['Rendered']);
@@ -106,7 +106,7 @@ describe('resolveBatchSavePaths', () => {
 
 	test('trims, removes empty paths, and de-duplicates paths', () => {
 		expect(resolveBatchSavePaths(
-			{ id: '1', text: 'A', url: 'https://a.test', paths: [' One ', '', 'One', 'Two'], status: 'idle' },
+			{ paths: [' One ', '', 'One', 'Two'] },
 			'Default',
 			'Rendered'
 		)).toEqual(['One', 'Two']);
@@ -114,7 +114,7 @@ describe('resolveBatchSavePaths', () => {
 
 	test('returns root path when item, default, and rendered paths are empty', () => {
 		expect(resolveBatchSavePaths(
-			{ id: '1', text: 'A', url: 'https://a.test', paths: [], status: 'idle' },
+			{ paths: [] },
 			'',
 			''
 		)).toEqual(['']);

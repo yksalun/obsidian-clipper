@@ -184,7 +184,7 @@ async function initializeExtension(tabId: number): Promise<ClipAvailability | nu
 
 		if (templates.length === 0) {
 			console.error('No templates loaded');
-			return false;
+			return null;
 		}
 
 		// Initialize triggers to speed up template matching
