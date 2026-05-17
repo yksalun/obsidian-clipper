@@ -36,6 +36,49 @@ export function isNormalPageUrl(url: string | undefined): boolean {
 	return !!url && isValidUrl(url) && !isBlankPage(url);
 }
 
+export interface ClipAvailability {
+	canClip: boolean;
+	errorKey?: 'pageCannotBeClipped' | 'onlyHttpSupported';
+	canUseBatch: boolean;
+	canExtractLinks: boolean;
+}
+
+export function getClipAvailability(url: string | undefined): ClipAvailability {
+	if (!url || isBlankPage(url)) {
+		return {
+			canClip: false,
+			errorKey: 'pageCannotBeClipped',
+			canUseBatch: true,
+			canExtractLinks: false,
+		};
+	}
+
+	if (!isValidUrl(url)) {
+		return {
+			canClip: false,
+			errorKey: 'onlyHttpSupported',
+			canUseBatch: true,
+			canExtractLinks: false,
+		};
+	}
+
+	if (isRestrictedUrl(url)) {
+		return {
+			canClip: false,
+			errorKey: 'pageCannotBeClipped',
+			canUseBatch: true,
+			canExtractLinks: false,
+		};
+	}
+
+	return {
+		canClip: true,
+		errorKey: undefined,
+		canUseBatch: true,
+		canExtractLinks: true,
+	};
+}
+
 export function isRestrictedUrl(url: string): boolean {
 	try {
 		const urlObj = new URL(url);

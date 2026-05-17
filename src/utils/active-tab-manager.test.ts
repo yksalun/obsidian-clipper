@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { isValidUrl, isBlankPage, isRestrictedUrl } from './active-tab-manager';
+import { getClipAvailability, isValidUrl, isBlankPage, isRestrictedUrl } from './active-tab-manager';
 
 describe('isValidUrl', () => {
 	test('returns true for http URLs', () => {
@@ -80,5 +80,34 @@ describe('isRestrictedUrl', () => {
 	test('handles invalid URLs gracefully', () => {
 		expect(isRestrictedUrl('')).toBe(false);
 		expect(isRestrictedUrl('not-a-url')).toBe(false);
+	});
+});
+
+describe('getClipAvailability', () => {
+	test('marks blank pages unavailable for Clip but not as a fatal side-panel setup condition', () => {
+		expect(getClipAvailability('about:blank')).toEqual({
+			canClip: false,
+			errorKey: 'pageCannotBeClipped',
+			canUseBatch: true,
+			canExtractLinks: false,
+		});
+	});
+
+	test('allows normal HTTP pages for clip and batch extraction', () => {
+		expect(getClipAvailability('https://example.com')).toEqual({
+			canClip: true,
+			errorKey: undefined,
+			canUseBatch: true,
+			canExtractLinks: true,
+		});
+	});
+
+	test('marks restricted pages unavailable for Clip and extraction while keeping Batch usable', () => {
+		expect(getClipAvailability('https://chromewebstore.google.com/detail/test')).toEqual({
+			canClip: false,
+			errorKey: 'pageCannotBeClipped',
+			canUseBatch: true,
+			canExtractLinks: false,
+		});
 	});
 });
